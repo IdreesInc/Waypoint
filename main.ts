@@ -1,17 +1,16 @@
 import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
 interface WaypointSettings {
-	mySetting: string;
+	waypointFlag: string
+	stopScanAtFolderNotes: boolean
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
-	mySetting: 'default'
+	waypointFlag: "%% Waypoint %%",
+	stopScanAtFolderNotes: false
 }
 
 export default class Waypoint extends Plugin {
-	static readonly WAYPOINT_FLAG = "%% Waypoint %%";
 	static readonly BEGIN_WAYPOINT = "%% Begin Waypoint %%";
 	static readonly END_WAYPOINT = "%% End Waypoint %%";
 
@@ -50,19 +49,23 @@ export default class Waypoint extends Plugin {
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new WaypointSettingsTab(this.app, this));
 	}
 
 	onunload() {
 	}
 
+	/**
+	 * Scan the given file for the waypoint flag. If found, update the waypoint.
+	 * @param file The file to scan
+	 */
 	detectWaypointFlag = async (file: TFile) => {
 		console.log("Modification on " + file.name);
 		console.log("Scanning for Waypoint flags...");
 		const text = await this.app.vault.cachedRead(file);
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
-			if (lines[i].trim() === (Waypoint.WAYPOINT_FLAG)) {
+			if (lines[i].trim() === this.settings.waypointFlag) {
 				console.log("Found waypoint flag!");
 				await this.updateWaypoint(file);
 				await this.updateParentWaypoint(file.parent, false);
@@ -72,6 +75,10 @@ export default class Waypoint extends Plugin {
 		console.log("No waypoint flags found.");
 	}
 
+	/**
+	 * Given a file with a waypoint flag, generate a file tree representation and update the waypoint text.
+	 * @param file The file to update
+	 */
 	async updateWaypoint(file: TFile) {
 		console.log("Updating waypoint in " + file.path);
 		const fileTree = await this.getFileTreeRepresentation(file.parent, 0, true);
@@ -82,7 +89,7 @@ export default class Waypoint extends Plugin {
 		let waypointEnd = -1;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (waypointStart === -1 && (trimmed === (Waypoint.WAYPOINT_FLAG) || trimmed === (Waypoint.BEGIN_WAYPOINT))) {
+			if (waypointStart === -1 && (trimmed === this.settings.waypointFlag || trimmed === Waypoint.BEGIN_WAYPOINT)) {
 				waypointStart = i;
 			} else if (waypointStart !== -1 && trimmed === (Waypoint.END_WAYPOINT)) {
 				waypointEnd = i;
@@ -98,17 +105,29 @@ export default class Waypoint extends Plugin {
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
 
+	/**
+	 * Generate a file tree representation of the given folder.
+	 * @param node The node to generate the tree from
+	 * @param indentLevel How many levels of indentation to draw
+	 * @param topLevel Whether this is the top level of the tree or not
+	 * @returns The string representation of the tree, or null if the node is not a file or folder
+	 */
 	async getFileTreeRepresentation(node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
-		const bullet = "	".repeat(indentLevel) + "-";
+		const bullet = "  ".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
 			return `${bullet} [[${node.basename}]]`;
 		} else if (node instanceof TFolder) {
 			if (!topLevel) {
 				const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
 				if (folderNote instanceof TFile) {
-					const content = await this.app.vault.cachedRead(folderNote);
-					if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(Waypoint.WAYPOINT_FLAG)) {
-						return `${bullet} **[[${folderNote.basename}]]**`;
+					const folderNoteLabel = `${bullet} **[[${folderNote.basename}]]**`;
+					if (this.settings.stopScanAtFolderNotes) {
+						return folderNoteLabel;
+					} else {
+						const content = await this.app.vault.cachedRead(folderNote);
+						if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(this.settings.waypointFlag)) {
+							return folderNoteLabel;
+						}
 					}
 				}
 			}
@@ -137,6 +156,9 @@ export default class Waypoint extends Plugin {
 		return null;
 	}
 
+	/**
+	 * Scan the changed folders and their ancestors for waypoints and update them if found.
+	 */
 	updateChangedFolders = async () => {
 		console.log("Updating changed folders...");
 		this.foldersWithChanges.forEach((folder) => {
@@ -146,12 +168,20 @@ export default class Waypoint extends Plugin {
 		this.foldersWithChanges.clear();
 	}
 
+	/**
+	 * Schedule an update for the changed folders after debouncing to prevent excessive updates.
+	 */
 	scheduleUpdate = debounce(
 		this.updateChangedFolders.bind(this),
 		500,
 		true
 	);
 
+	/**
+	 * Update the ancestor waypoint (if any) of the given file/folder.
+	 * @param node The node to start the search from
+	 * @param includeCurrentNode Whether to include the given folder in the search
+	 */
 	updateParentWaypoint = async (node: TAbstractFile, includeCurrentNode: boolean) => {
 		const parentWaypoint = await this.locateParentWaypoint(node, includeCurrentNode);
 		if (parentWaypoint !== null) {
@@ -159,6 +189,12 @@ export default class Waypoint extends Plugin {
 		}
 	}
 
+	/**
+	 * Locate the ancestor waypoint (if any) of the given file/folder.
+	 * @param node The node to start the search from
+	 * @param includeCurrentNode Whether to include the given folder in the search
+	 * @returns The ancestor waypoint, or null if none was found
+	 */
 	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile> {
 		console.log("Locating parent waypoint of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
@@ -168,7 +204,7 @@ export default class Waypoint extends Plugin {
 			if (folderNote instanceof TFile) {
 				console.log("Found folder note: " + folderNote.path);
 				const text = await this.app.vault.cachedRead(folderNote);
-				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(Waypoint.WAYPOINT_FLAG)) {
+				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(this.settings.waypointFlag)) {
 					console.log("Found parent waypoint!");
 					return folderNote;
 				}
@@ -179,6 +215,11 @@ export default class Waypoint extends Plugin {
 		return null;
 	}
 
+	/**
+	 * Get the parent folder of the given filepath if it exists.
+	 * @param path The filepath to search
+	 * @returns The parent folder, or null if none exists
+	 */
 	getParentFolder(path: string): TFolder {
 		const abstractFile = this.app.vault.getAbstractFileByPath(path.split("/").slice(0, -1).join("/"));
 		if (abstractFile instanceof TFolder) {
@@ -197,7 +238,7 @@ export default class Waypoint extends Plugin {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
+class WaypointSettingsTab extends PluginSettingTab {
 	plugin: Waypoint;
 
 	constructor(app: App, plugin: Waypoint) {
@@ -207,21 +248,42 @@ class SampleSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const {containerEl} = this;
-
 		containerEl.empty();
-
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
-
+		containerEl.createEl('h2', {text: 'Waypoint Settings'});
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName("Stop Scan at Folder Notes")
+			.setDesc("If enabled, the waypoint generator will stop scanning nested folders when it encounters a folder note. Otherwise, it will only stop if the folder note contains a waypoint.")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.stopScanAtFolderNotes)
 				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.stopScanAtFolderNotes = value;
 					await this.plugin.saveSettings();
-				}));
+				})
+			);
+		new Setting(containerEl)
+			.setName("Waypoint Flag")
+			.setDesc("Text flag that triggers waypoint generation in a folder note. Must be surrounded by double-percent signs.")
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.waypointFlag)
+				.setValue(this.plugin.settings.waypointFlag)
+				.onChange(async (value) => {
+					if (value && value.startsWith("%%") && value.endsWith("%%") && value !== "%%" && value !== "%%%" && value !== "%%%%") {
+						this.plugin.settings.waypointFlag = value;
+					} else {
+						this.plugin.settings.waypointFlag = DEFAULT_SETTINGS.waypointFlag;
+						console.error("Error: Waypoint flag must be surrounded by double-percent signs.");
+					}
+					await this.plugin.saveSettings();
+				})
+			);
+		const postscriptElement = containerEl.createEl("div", {
+			cls: "setting-item",
+		});
+		const descriptionElement = postscriptElement.createDiv({cls: "setting-item-description"});
+		descriptionElement.createSpan({text: "For instructions on how to use this plugin, check out the README on "});
+		descriptionElement.createEl("a", { attr: { "href": "https://github.com/IdreesInc/Waypoint" }, text: "GitHub" });
+		descriptionElement.createSpan({text: " or get in touch with the author "});
+		descriptionElement.createEl("a", { attr: { "href": "https://twitter.com/IdreesInc" }, text: "@IdreesInc" });
+		postscriptElement.appendChild(descriptionElement);
 	}
 }
