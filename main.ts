@@ -29,12 +29,21 @@ export default class Waypoint extends Plugin {
 			}));
 			this.registerEvent(this.app.vault.on("delete", (file) => {
 				console.log("delete " + file.name);
-				this.foldersWithChanges.add(file.parent);
-				this.scheduleUpdate();
+				console.log(file);
+				const parentFolder = this.getParentFolder(file.path);
+				if (parentFolder !== null) {
+					this.foldersWithChanges.add(parentFolder);
+					this.scheduleUpdate();
+				}
 			}));
-			this.registerEvent(this.app.vault.on("rename", (file) => {
+			this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
 				console.log("rename " + file.name);
+				console.log(file);
 				this.foldersWithChanges.add(file.parent);
+				const parentFolder = this.getParentFolder(oldPath);
+				if (parentFolder !== null) {
+					this.foldersWithChanges.add(parentFolder);
+				}
 				this.scheduleUpdate();
 			}));
 			this.registerEvent(this.app.vault.on("modify", this.detectWaypointFlag));
@@ -56,7 +65,7 @@ export default class Waypoint extends Plugin {
 			if (lines[i].trim() === (Waypoint.WAYPOINT_FLAG)) {
 				console.log("Found waypoint flag!");
 				await this.updateWaypoint(file);
-				await this.updateParentWaypoint(file.parent);
+				await this.updateParentWaypoint(file.parent, false);
 				return;
 			}
 		}
@@ -130,8 +139,10 @@ export default class Waypoint extends Plugin {
 
 	updateChangedFolders = async () => {
 		console.log("Updating changed folders...");
-		this.foldersWithChanges.forEach(this.updateParentWaypoint);
-		// this.foldersWithChanges.forEach((folder) => console.log(folder.path));
+		this.foldersWithChanges.forEach((folder) => {
+			console.log("Updating " + folder.path);
+			this.updateParentWaypoint(folder, true);
+		});
 		this.foldersWithChanges.clear();
 	}
 
@@ -141,14 +152,14 @@ export default class Waypoint extends Plugin {
 		true
 	);
 
-	updateParentWaypoint = async (node: TAbstractFile) => {
-		const parentWaypoint = await this.locateParentWaypoint(node);
+	updateParentWaypoint = async (node: TAbstractFile, includeCurrentNode: boolean) => {
+		const parentWaypoint = await this.locateParentWaypoint(node, includeCurrentNode);
 		if (parentWaypoint !== null) {
 			this.updateWaypoint(parentWaypoint);
 		}
 	}
 
-	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode = false): Promise<TFile> {
+	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile> {
 		console.log("Locating parent waypoint of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
@@ -166,6 +177,15 @@ export default class Waypoint extends Plugin {
 		}
 		console.log("No parent waypoint found.");
 		return null;
+	}
+
+	getParentFolder(path: string): TFolder {
+		const abstractFile = this.app.vault.getAbstractFileByPath(path.split("/").slice(0, -1).join("/"));
+		if (abstractFile instanceof TFolder) {
+			return abstractFile;
+		} else {
+			return null;
+		}
 	}
 
 	async loadSettings() {
