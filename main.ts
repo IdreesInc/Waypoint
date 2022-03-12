@@ -66,13 +66,42 @@ export default class Waypoint extends Plugin {
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
 			if (lines[i].trim() === this.settings.waypointFlag) {
-				console.log("Found waypoint flag!");
-				await this.updateWaypoint(file);
-				await this.updateParentWaypoint(file.parent, false);
-				return;
+				if (file.basename == file.parent.name) {
+					console.log("Found waypoint flag in folder note!");
+					await this.updateWaypoint(file);
+					await this.updateParentWaypoint(file.parent, false);
+					return;	
+				} else if (file.parent.isRoot()) {
+					console.log("Found waypoint flag in root folder.");
+					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
+					return;
+				} else {
+					console.log("Found waypoint flag in invalid note.");
+					this.printWaypointError(file, `%% Error: Cannot create a waypoint in a note not named after the folder ("${file.basename}" is not the same as "${file.parent.name}"). For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
+					return;
+				}
 			}
 		}
 		console.log("No waypoint flags found.");
+	}
+
+	async printWaypointError(file: TFile, error: string) {
+		console.log("Creating waypoint error in " + file.path);
+		const text = await this.app.vault.read(file);
+		const lines: string[] = text.split("\n");
+		let waypointIndex = -1;
+		for (let i = 0; i < lines.length; i++) {
+			const trimmed = lines[i].trim();
+			if (trimmed === this.settings.waypointFlag) {
+				waypointIndex = i;
+			}
+		}
+		if (waypointIndex === -1) {
+			console.error("Error: No waypoint flag found while trying to print error.");
+			return;
+		}
+		lines.splice(waypointIndex, 1, error);
+		await this.app.vault.modify(file, lines.join("\n"));
 	}
 
 	/**
@@ -202,7 +231,6 @@ export default class Waypoint extends Plugin {
 		console.log("Locating parent waypoint of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
-			console.log(folder.name);
 			const folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
 			if (folderNote instanceof TFile) {
 				console.log("Found folder note: " + folderNote.path);
