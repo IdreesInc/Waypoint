@@ -82,7 +82,7 @@ export default class Waypoint extends Plugin {
 	async updateWaypoint(file: TFile) {
 		console.log("Updating waypoint in " + file.path);
 		const fileTree = await this.getFileTreeRepresentation(file.parent, 0, true);
-		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n${Waypoint.END_WAYPOINT}`;
+		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointStart = -1;
@@ -113,9 +113,12 @@ export default class Waypoint extends Plugin {
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
 	async getFileTreeRepresentation(node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
-		const bullet = "  ".repeat(indentLevel) + "-";
+		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
-			return `${bullet} [[${node.basename}]]`;
+			if (node.path.endsWith(".md")) {
+				return `${bullet} [[${node.basename}]]`;
+			}
+			return null;
 		} else if (node instanceof TFolder) {
 			if (!topLevel) {
 				const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
