@@ -2,12 +2,14 @@ import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile,
 
 interface WaypointSettings {
 	waypointFlag: string
-	stopScanAtFolderNotes: boolean
+	stopScanAtFolderNotes: boolean,
+	debugLogging: boolean
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
 	waypointFlag: "%% Waypoint %%",
-	stopScanAtFolderNotes: false
+	stopScanAtFolderNotes: false,
+	debugLogging: false
 }
 
 export default class Waypoint extends Plugin {
@@ -22,13 +24,12 @@ export default class Waypoint extends Plugin {
 		this.app.workspace.onLayoutReady(async () => {
 			// Register events after layout is built to avoid initial wave of 'create' events
 			this.registerEvent(this.app.vault.on("create", (file) => {
-				console.log("create " + file.name);
+				this.log("create " + file.name);
 				this.foldersWithChanges.add(file.parent);
 				this.scheduleUpdate();
 			}));
 			this.registerEvent(this.app.vault.on("delete", (file) => {
-				console.log("delete " + file.name);
-				console.log(file);
+				this.log("delete " + file.name);
 				const parentFolder = this.getParentFolder(file.path);
 				if (parentFolder !== null) {
 					this.foldersWithChanges.add(parentFolder);
@@ -36,8 +37,7 @@ export default class Waypoint extends Plugin {
 				}
 			}));
 			this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
-				console.log("rename " + file.name);
-				console.log(file);
+				this.log("rename " + file.name);
 				this.foldersWithChanges.add(file.parent);
 				const parentFolder = this.getParentFolder(oldPath);
 				if (parentFolder !== null) {
@@ -60,33 +60,33 @@ export default class Waypoint extends Plugin {
 	 * @param file The file to scan
 	 */
 	detectWaypointFlag = async (file: TFile) => {
-		console.log("Modification on " + file.name);
-		console.log("Scanning for Waypoint flags...");
+		this.log("Modification on " + file.name);
+		this.log("Scanning for Waypoint flags...");
 		const text = await this.app.vault.cachedRead(file);
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
 			if (lines[i].trim() === this.settings.waypointFlag) {
 				if (file.basename == file.parent.name) {
-					console.log("Found waypoint flag in folder note!");
+					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
 					await this.updateParentWaypoint(file.parent, false);
 					return;	
 				} else if (file.parent.isRoot()) {
-					console.log("Found waypoint flag in root folder.");
+					this.log("Found waypoint flag in root folder.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
 					return;
 				} else {
-					console.log("Found waypoint flag in invalid note.");
+					this.log("Found waypoint flag in invalid note.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in a note not named after the folder ("${file.basename}" is not the same as "${file.parent.name}"). For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
 					return;
 				}
 			}
 		}
-		console.log("No waypoint flags found.");
+		this.log("No waypoint flags found.");
 	}
 
 	async printWaypointError(file: TFile, error: string) {
-		console.log("Creating waypoint error in " + file.path);
+		this.log("Creating waypoint error in " + file.path);
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointIndex = -1;
@@ -109,7 +109,7 @@ export default class Waypoint extends Plugin {
 	 * @param file The file to update
 	 */
 	async updateWaypoint(file: TFile) {
-		console.log("Updating waypoint in " + file.path);
+		this.log("Updating waypoint in " + file.path);
 		const fileTree = await this.getFileTreeRepresentation(file.parent, 0, true);
 		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
@@ -129,7 +129,7 @@ export default class Waypoint extends Plugin {
 			console.error("Error: No waypoint found while trying to update " + file.path);
 			return;
 		}
-		console.log("Waypoint found at " + waypointStart + " to " + waypointEnd);
+		this.log("Waypoint found at " + waypointStart + " to " + waypointEnd);
 		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, waypoint);
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
@@ -192,9 +192,9 @@ export default class Waypoint extends Plugin {
 	 * Scan the changed folders and their ancestors for waypoints and update them if found.
 	 */
 	updateChangedFolders = async () => {
-		console.log("Updating changed folders...");
+		this.log("Updating changed folders...");
 		this.foldersWithChanges.forEach((folder) => {
-			console.log("Updating " + folder.path);
+			this.log("Updating " + folder.path);
 			this.updateParentWaypoint(folder, true);
 		});
 		this.foldersWithChanges.clear();
@@ -228,21 +228,21 @@ export default class Waypoint extends Plugin {
 	 * @returns The ancestor waypoint, or null if none was found
 	 */
 	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile> {
-		console.log("Locating parent waypoint of " + node.name);
+		this.log("Locating parent waypoint of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
 			const folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
 			if (folderNote instanceof TFile) {
-				console.log("Found folder note: " + folderNote.path);
+				this.log("Found folder note: " + folderNote.path);
 				const text = await this.app.vault.cachedRead(folderNote);
 				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(this.settings.waypointFlag)) {
-					console.log("Found parent waypoint!");
+					this.log("Found parent waypoint!");
 					return folderNote;
 				}
 			}
 			folder = folder.parent;
 		}
-		console.log("No parent waypoint found.");
+		this.log("No parent waypoint found.");
 		return null;
 	}
 
@@ -257,6 +257,12 @@ export default class Waypoint extends Plugin {
 			return abstractFile;
 		} else {
 			return null;
+		}
+	}
+
+	log(message: string) {
+		if (this.settings.debugLogging) {
+			console.log(message);			
 		}
 	}
 
