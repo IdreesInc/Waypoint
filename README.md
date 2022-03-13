@@ -35,9 +35,10 @@ Note that since waypoints can only be generated in folder notes, **it is highly 
 ## Current Limitations
 
 - **Waypoints can only be created within a folder note**
+	- A folder note is a note that has the exact same name as its parent folder.
 	- Because scanning for waypoints every time a file/folder is changed is an intensive process, only folder notes are checked to avoid scanning every file in the vault.
 - **Waypoints cannot be created on the top level of your vault**
-	- Waypoints are meant to categorize notes that are similar to one another. Adding a waypoint to the root node would cause every note in your vault to be linked and defeat the point of using waypoints in the first place
+	- Waypoints are meant to categorize notes that are similar to one another. Adding a waypoint to the root node would cause every note in your vault to be linked and defeat the point of using waypoints in the first place.
 - **Waypoint appearance can't be customized (yet)**
 - **Only notes with the same name as the folder they are in will be considered "folder notes"**
 - **Only one waypoint can be created per folder note**
