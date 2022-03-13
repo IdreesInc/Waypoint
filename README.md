@@ -47,7 +47,7 @@ If your workflow would be improved by the removal of one of these limitations, f
 
 ## FAQ
 
-## Why should I use this instead of tags?
+### Why should I use this instead of just using tags?
 
 Tags are an easy way to sort and organize different notes by a type or category, but they have a few drawbacks that limit their usability. My personal reasons for not using tags extensively are that they need to be added or removed from a note manually and they cannot be nested in a meaningful way. Folders on the other hand are a clear and easy way to lump a bunch of notes into a specific category. And the ability to nest folders makes it a lot easier to document the relationship between individual categories. Using this plugin, you can easily link files in the same folder together without any manual bookkeeping (beyond creating the intial waypoint). I still find myself using tags for defining different types of notes since those are not likely to change even if I move them around.
 
