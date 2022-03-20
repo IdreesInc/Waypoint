@@ -26,8 +26,8 @@ Waypoint is an Obsidian plugin that automatically generates tables of contents/M
 ## How To Use
 
 - First, install the plugin. Waypoint is currently being reviewed for inclusion in the Community Plugins list. Once it is accepted, you'll be able to install it directly within Obsidian.
-- Generate a waypoint by editing a folder file (a file with the same name as its parent folder) and typing in the waypoint trigger text. By default, this is `%% Waypoint %%`. Make sure to include the double-parentheses on both sides!
-	- This trigger flag can be changed in settings, but it will always require the double-parentheses as that is how Obsidian knows it's a comment and not real text.
+- Generate a waypoint by editing a folder file (a file with the same name as its parent folder) and typing in the waypoint trigger text. By default, this is `%% Waypoint %%`. Make sure to include the double-percents on both sides!
+	- This trigger flag can be changed in settings, but it will always require the double-percents as that is how Obsidian knows it's a comment and not real text.
 - And that's it! Waypoints will be automatically updated whenever the files or folders within that folder are changed. Be sure not to remove the `%% Begin Waypoint %%` or `%% End Waypoint %%` flags as this is what the plugin uses to locate the table of contents. Any changes made to the text between these flags will get removed once the waypoint is updated.
 
 Note that since waypoints can only be generated in folder notes, **it is highly recommended that you install a plugin like [Folder Note](https://github.com/xpgo/obsidian-folder-note-plugin)** to ensure that folder notes don't get lost after folder renames and other actions that change the file tree. If a folder note containing a waypoint is renamed to something other than the folder's name, the waypoint will no longer be updated.
