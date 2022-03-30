@@ -169,14 +169,7 @@ export default class Waypoint extends Plugin {
 			if (node.children && node.children.length > 0) {
 				let children = node.children;
 				children = children.sort((a, b) => {
-					const aName = a.name.toLowerCase();
-					const bName = b.name.toLowerCase();
-					if (aName < bName) {
-						return -1;
-					} else if (aName > bName) {
-						return 1;
-					}
-					return 0;
+					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 				}).filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
 				if (children.length > 0) {
 					text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(child, indentLevel + 1))))
