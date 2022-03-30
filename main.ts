@@ -3,12 +3,14 @@ import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile,
 interface WaypointSettings {
 	waypointFlag: string
 	stopScanAtFolderNotes: boolean,
+	showFolderNotes: boolean,
 	debugLogging: boolean
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
 	waypointFlag: "%% Waypoint %%",
 	stopScanAtFolderNotes: false,
+	showFolderNotes: false,
 	debugLogging: false
 }
 
@@ -149,21 +151,21 @@ export default class Waypoint extends Plugin {
 			}
 			return null;
 		} else if (node instanceof TFolder) {
-			if (!topLevel) {
-				const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
-				if (folderNote instanceof TFile) {
-					const folderNoteLabel = `${bullet} **[[${folderNote.basename}]]**`;
+			let text = `${bullet} **${node.name}**`;
+			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
+			if (folderNote instanceof TFile) {
+				text = `${bullet} **[[${folderNote.basename}]]**`;
+				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
-						return folderNoteLabel;
+						return text;
 					} else {
 						const content = await this.app.vault.cachedRead(folderNote);
 						if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(this.settings.waypointFlag)) {
-							return folderNoteLabel;
+							return text;
 						}
 					}
 				}
 			}
-			let text = `${bullet} **${node.name}**`;
 			if (node.children && node.children.length > 0) {
 				let children = node.children;
 				children = children.sort((a, b) => {
@@ -175,10 +177,12 @@ export default class Waypoint extends Plugin {
 						return 1;
 					}
 					return 0;
-				});
-				text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(child, indentLevel + 1))))
+				}).filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
+				if (children.length > 0) {
+					text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(child, indentLevel + 1))))
 					.filter(Boolean)
 					.join("\n");
+				}
 				return text;
 			} else {
 				return `${bullet} **${node.name}**`;
@@ -287,6 +291,16 @@ class WaypointSettingsTab extends PluginSettingTab {
 		const {containerEl} = this;
 		containerEl.empty();
 		containerEl.createEl('h2', {text: 'Waypoint Settings'});
+		new Setting(containerEl)
+			.setName("Show Folder Notes")
+			.setDesc("If enabled, folder notes will be listed alongside other notes in the generated waypoints.")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showFolderNotes)
+				.onChange(async (value) => {
+					this.plugin.settings.showFolderNotes = value;
+					await this.plugin.saveSettings();
+				})
+			);
 		new Setting(containerEl)
 			.setName("Stop Scan at Folder Notes")
 			.setDesc("If enabled, the waypoint generator will stop scanning nested folders when it encounters a folder note. Otherwise, it will only stop if the folder note contains a waypoint.")
