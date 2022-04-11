@@ -154,7 +154,7 @@ export default class Waypoint extends Plugin {
 			let text = `${bullet} **${node.name}**`;
 			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
 			if (folderNote instanceof TFile) {
-				text = `${bullet} **[[${folderNote.basename}]]**`;
+				text = `${bullet} **[${folderNote.basename}](${folderNote.path})**`;
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
 						return text;
