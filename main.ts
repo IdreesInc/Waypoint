@@ -147,7 +147,7 @@ export default class Waypoint extends Plugin {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
 			if (node.path.endsWith(".md")) {
-				return `${bullet} [[${node.basename}]]`;
+				return `${bullet} [${node.basename}](${node.path})`;
 			}
 			return null;
 		} else if (node instanceof TFolder) {
