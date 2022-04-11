@@ -147,14 +147,14 @@ export default class Waypoint extends Plugin {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
 			if (node.path.endsWith(".md")) {
-				return `${bullet} [[${node.basename}]]`;
+				return `${bullet} [${node.basename}](${node.path.replace(/ /g, '%20')})`;
 			}
 			return null;
 		} else if (node instanceof TFolder) {
 			let text = `${bullet} **${node.name}**`;
 			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
 			if (folderNote instanceof TFile) {
-				text = `${bullet} **[${folderNote.basename}](${folderNote.path})**`;
+				text = `${bullet} **[${folderNote.basename}](${folderNote.path.replace(/ /g, '%20')})**`;
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
 						return text;
