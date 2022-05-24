@@ -5,6 +5,7 @@ interface WaypointSettings {
 	stopScanAtFolderNotes: boolean,
 	showFolderNotes: boolean,
 	debugLogging: boolean,
+	ignoredFolders: string[],
 	root: string
 }
 
@@ -13,6 +14,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	stopScanAtFolderNotes: false,
 	showFolderNotes: false,
 	debugLogging: false,
+	ignoredFolders: ["Templates"],
 	root: null
 }
 
@@ -161,6 +163,7 @@ export default class Waypoint extends Plugin {
 			}
 			return null;
 		} else if (node instanceof TFolder) {
+			if (this.settings.ignoredFolders.includes(node.path)) { return null }
 			let text = `${bullet} **${node.name}**`;
 			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
 			if (folderNote instanceof TFile) {
@@ -340,6 +343,28 @@ class WaypointSettingsTab extends PluginSettingTab {
 						console.error("Error: Waypoint flag must be surrounded by double-percent signs.");
 					}
 					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Ignored folders")
+			.setDesc("Folders that Waypoint should ignore")
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.ignoredFolders.join(","))
+				.setValue(this.plugin.settings.ignoredFolders.join(", "))
+				.onChange(async (value) => {
+					let previous = this.plugin.settings.ignoredFolders;
+					this.plugin.settings.ignoredFolders = value.split(/\s*,\s*/);
+					await this.plugin.saveSettings();
+
+					// Get a list of all new and old folders that need updating
+					let allFolders = [...new Set([...previous, ...this.plugin.settings.ignoredFolders])]
+					for (let i = 0; i < allFolders.length; i++) {
+						let file = this.app.vault.getAbstractFileByPath(allFolders[i]);
+						if (file === null) { continue }
+						await this.plugin.locateParentWaypoint(file, false).then((file) => {
+							if (file !== null) { this.plugin.updateWaypoint(file) }
+						})
+					}
 				})
 			);
 		const postscriptElement = containerEl.createEl("div", {
