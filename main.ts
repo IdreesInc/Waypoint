@@ -197,8 +197,8 @@ export default class Waypoint extends Plugin {
 				}).filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
 				if (children.length > 0) {
 					text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(child, indentLevel + 1))))
-					.filter(Boolean)
-					.join("\n");
+						.filter(Boolean)
+						.join("\n");
 				}
 				return text;
 			} else {
@@ -295,7 +295,7 @@ export default class Waypoint extends Plugin {
 
 	log(message: string) {
 		if (this.settings.debugLogging) {
-			console.log(message);			
+			console.log(message);
 		}
 	}
 
