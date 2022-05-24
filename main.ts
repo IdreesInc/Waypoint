@@ -131,10 +131,9 @@ export default class Waypoint extends Plugin {
 		this.log("Updating waypoint in " + file.path);
 		let fileTree = await this.getFileTreeRepresentation(file.parent, 0, true);
 		if (file.parent.isRoot()) {
-			let splitFileTree = fileTree.split("\n");
+			const splitFileTree = fileTree.split("\n");
 			fileTree = `- **[[${file.basename}]]**\n${splitFileTree.slice(1).join("\n")}`
 		}
-		console.log(fileTree);
 		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
@@ -168,7 +167,7 @@ export default class Waypoint extends Plugin {
 	async getFileTreeRepresentation(node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
-			// Chack for the parent being the root because otherwise the "root note" would be included in the tree
+			// Check for the parent being the root because otherwise the "root note" would be included in the tree
 			if (node.path.endsWith(".md") && !node.parent.isRoot()) {
 				return `${bullet} [[${node.basename}]]`;
 			}
@@ -363,14 +362,14 @@ class WaypointSettingsTab extends PluginSettingTab {
 				.setPlaceholder(DEFAULT_SETTINGS.ignoredFolders.join(","))
 				.setValue(this.plugin.settings.ignoredFolders.join(", "))
 				.onChange(async (value) => {
-					let previous = this.plugin.settings.ignoredFolders;
+					const previous = this.plugin.settings.ignoredFolders;
 					this.plugin.settings.ignoredFolders = value.split(/\s*,\s*/);
 					await this.plugin.saveSettings();
 
 					// Get a list of all new and old folders that need updating
-					let allFolders = [...new Set([...previous, ...this.plugin.settings.ignoredFolders])]
+					const allFolders = [...new Set([...previous, ...this.plugin.settings.ignoredFolders])]
 					for (let i = 0; i < allFolders.length; i++) {
-						let file = this.app.vault.getAbstractFileByPath(allFolders[i]);
+						const file = this.app.vault.getAbstractFileByPath(allFolders[i]);
 						if (file === null) { continue }
 						await this.plugin.locateParentWaypoint(file, false).then((file) => {
 							if (file !== null) { this.plugin.updateWaypoint(file) }
