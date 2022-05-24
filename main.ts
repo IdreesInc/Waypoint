@@ -56,6 +56,17 @@ export default class Waypoint extends Plugin {
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new WaypointSettingsTab(this.app, this));
+
+		// Add in a hotkey to update the waypoint
+		this.addCommand({
+			id: "update-waypoint",
+			name: "Update waypoint in current file",
+			hotkeys: [{
+				modifiers: ["Ctrl"],
+				key: "w"
+			}],
+			callback: () => { this.updateWaypoint(this.app.workspace.getActiveFile()) }
+		})
 	}
 
 	onunload() {
