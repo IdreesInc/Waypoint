@@ -4,14 +4,16 @@ interface WaypointSettings {
 	waypointFlag: string
 	stopScanAtFolderNotes: boolean,
 	showFolderNotes: boolean,
-	debugLogging: boolean
+	debugLogging: boolean,
+	useWikiLinks: boolean
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
 	waypointFlag: "%% Waypoint %%",
 	stopScanAtFolderNotes: false,
 	showFolderNotes: false,
-	debugLogging: false
+	debugLogging: false,
+	useWikiLinks: true
 }
 
 export default class Waypoint extends Plugin {
@@ -147,14 +149,22 @@ export default class Waypoint extends Plugin {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
 			if (node.path.endsWith(".md")) {
-				return `${bullet} [${node.basename}](${node.path.replace(/ /g, '%20')})`;
+				if (this.settings.useWikiLinks) {
+					return `${bullet} [[${node.basename}]]`;
+				} else {
+					return `${bullet} [${node.basename}](../${encodeURI(node.path)})`;
+				}
 			}
 			return null;
 		} else if (node instanceof TFolder) {
 			let text = `${bullet} **${node.name}**`;
 			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
 			if (folderNote instanceof TFile) {
-				text = `${bullet} **[${folderNote.basename}](${folderNote.path.replace(/ /g, '%20')})**`;
+				if (this.settings.useWikiLinks) {
+					text = `${bullet} **[[${folderNote.basename}]]**`;
+				} else {
+					text = `${bullet} **[${folderNote.basename}](../${encodeURI(folderNote.path)})**`;
+				}
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
 						return text;
@@ -301,6 +311,16 @@ class WaypointSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.stopScanAtFolderNotes)
 				.onChange(async (value) => {
 					this.plugin.settings.stopScanAtFolderNotes = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Use WikiLinks")
+			.setDesc("If enabled, links will be generated like [[My Page]] instead of [My Page](../Folder/My%Page.md).")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.useWikiLinks)
+				.onChange(async (value) => {
+					this.plugin.settings.useWikiLinks = value;
 					await this.plugin.saveSettings();
 				})
 			);
