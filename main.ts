@@ -114,7 +114,7 @@ export default class Waypoint extends Plugin {
 	 */
 	async updateWaypoint(file: TFile) {
 		this.log("Updating waypoint in " + file.path);
-		const fileTree = await this.getFileTreeRepresentation(file.parent, 0, true);
+		const fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
 		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
@@ -140,30 +140,36 @@ export default class Waypoint extends Plugin {
 
 	/**
 	 * Generate a file tree representation of the given folder.
-	 * @param node The node to generate the tree from
+	 * @param root_node Folder for which we are getting the file tree representation for
+	 * @param cur_node The node to generate the tree from
 	 * @param indentLevel How many levels of indentation to draw
 	 * @param topLevel Whether this is the top level of the tree or not
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
-	async getFileTreeRepresentation(node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
+	async getFileTreeRepresentation(root_node: TFolder, cur_node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
+		let pathFromRootNode = function() {
+			let prefix_len = root_node.path.length;
+			let link = cur_node.path.substring(prefix_len);
+			return `./${encodeURI(link)}`
+		};
 		const bullet = "	".repeat(indentLevel) + "-";
-		if (node instanceof TFile) {
-			if (node.path.endsWith(".md")) {
+		if (cur_node instanceof TFile) {
+			if (cur_node.path.endsWith(".md")) {
 				if (this.settings.useWikiLinks) {
-					return `${bullet} [[${node.basename}]]`;
+					return `${bullet} [[${cur_node.basename}]]`;
 				} else {
-					return `${bullet} [${node.basename}](../${encodeURI(node.path)})`;
+					return `${bullet} [${cur_node.basename}](${pathFromRootNode()})`;
 				}
 			}
 			return null;
-		} else if (node instanceof TFolder) {
-			let text = `${bullet} **${node.name}**`;
-			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
+		} else if (cur_node instanceof TFolder) {
+			let text = `${bullet} **${cur_node.name}**`;
+			const folderNote = this.app.vault.getAbstractFileByPath(cur_node.path + "/" + cur_node.name + ".md");
 			if (folderNote instanceof TFile) {
 				if (this.settings.useWikiLinks) {
 					text = `${bullet} **[[${folderNote.basename}]]**`;
 				} else {
-					text = `${bullet} **[${folderNote.basename}](../${encodeURI(folderNote.path)})**`;
+					text = `${bullet} **[${folderNote.basename}](./${pathFromRootNode()})**`;
 				}
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
@@ -176,19 +182,19 @@ export default class Waypoint extends Plugin {
 					}
 				}
 			}
-			if (node.children && node.children.length > 0) {
-				let children = node.children;
+			if (cur_node.children && cur_node.children.length > 0) {
+				let children = cur_node.children;
 				children = children.sort((a, b) => {
 					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
-				}).filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
+				}).filter(child => this.settings.showFolderNotes || child.name !== cur_node.name + ".md");
 				if (children.length > 0) {
-					text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(child, indentLevel + 1))))
+					text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(root_node, child, indentLevel + 1))))
 					.filter(Boolean)
 					.join("\n");
 				}
 				return text;
 			} else {
-				return `${bullet} **${node.name}**`;
+				return `${bullet} **${cur_node.name}**`;
 			}
 
 		}
