@@ -141,7 +141,7 @@ export default class Waypoint extends Plugin {
 	/**
 	 * Generate a file tree representation of the given folder.
 	 * @param root_node Folder for which we are getting the file tree representation for
-	 * @param cur_node The node to generate the tree from
+	 * @param cur_node The current node in our recursive descent
 	 * @param indentLevel How many levels of indentation to draw
 	 * @param topLevel Whether this is the top level of the tree or not
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
