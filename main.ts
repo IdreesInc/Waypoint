@@ -147,10 +147,9 @@ export default class Waypoint extends Plugin {
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
 	async getFileTreeRepresentation(root_node: TFolder, cur_node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
-		let pathFromRootNode = function() {
-			let prefix_len = root_node.path.length;
-			let link = cur_node.path.substring(prefix_len);
-			return `./${encodeURI(link)}`
+		let pathFromRootNode = function(node: TAbstractFile) {
+			let prefix_len = root_node.path.length + 1;
+			return `./${encodeURI(node.path.substring(prefix_len))}`;
 		};
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (cur_node instanceof TFile) {
@@ -158,7 +157,7 @@ export default class Waypoint extends Plugin {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${cur_node.basename}]]`;
 				} else {
-					return `${bullet} [${cur_node.basename}](${pathFromRootNode()})`;
+					return `${bullet} [${cur_node.basename}](${pathFromRootNode(cur_node)})`;
 				}
 			}
 			return null;
@@ -169,7 +168,7 @@ export default class Waypoint extends Plugin {
 				if (this.settings.useWikiLinks) {
 					text = `${bullet} **[[${folderNote.basename}]]**`;
 				} else {
-					text = `${bullet} **[${folderNote.basename}](./${pathFromRootNode()})**`;
+					text = `${bullet} **[${folderNote.basename}](${pathFromRootNode(folderNote)})**`;
 				}
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
