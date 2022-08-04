@@ -1,4 +1,4 @@
-import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder } from 'obsidian';
+import {App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder, Vault} from 'obsidian';
 
 interface WaypointSettings {
 	waypointFlag: string
@@ -29,7 +29,8 @@ export default class Waypoint extends Plugin {
 			// Register events after layout is built to avoid initial wave of 'create' events
 			this.registerEvent(this.app.vault.on("create", (file) => {
 				this.log("create " + file.name);
-				this.foldersWithChanges.add(file.parent);
+				const folderParent = this.getParentFolder(file.path);
+				this.foldersWithChanges.add(folderParent);
 				this.scheduleUpdate();
 			}));
 			this.registerEvent(this.app.vault.on("delete", (file) => {
@@ -42,7 +43,8 @@ export default class Waypoint extends Plugin {
 			}));
 			this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
 				this.log("rename " + file.name);
-				this.foldersWithChanges.add(file.parent);
+				const parentFolderOrigin = this.getParentFolder(file.path);
+				this.foldersWithChanges.add(parentFolderOrigin);
 				const parentFolder = this.getParentFolder(oldPath);
 				if (parentFolder !== null) {
 					this.foldersWithChanges.add(parentFolder);
@@ -74,7 +76,11 @@ export default class Waypoint extends Plugin {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
 					await this.updateParentWaypoint(file.parent, false);
-					return;	
+					return;
+				} else if (this.outsideFolderPath(file)) {
+					await this.updateWaypoint(file);
+					await this.updateParentWaypoint(this.outsideFolderPath(file), false);
+					return;
 				} else if (file.parent.isRoot()) {
 					this.log("Found waypoint flag in root folder.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
@@ -87,6 +93,14 @@ export default class Waypoint extends Plugin {
 			}
 		}
 		this.log("No waypoint flags found.");
+	}
+
+	outsideFolderPath(file:TFile) {
+		const folderNotePath = this.app.vault.getAbstractFileByPath(file.path.replace('.md', ''));
+		if (folderNotePath && folderNotePath instanceof TFolder) {
+			return folderNotePath;
+		}
+		return null;
 	}
 
 	async printWaypointError(file: TFile, error: string) {
@@ -114,7 +128,8 @@ export default class Waypoint extends Plugin {
 	 */
 	async updateWaypoint(file: TFile) {
 		this.log("Updating waypoint in " + file.path);
-		const fileTree = await this.getFileTreeRepresentation(file.parent, 0, true);
+		const parentFolder = this.getParentFolder(file.path);
+		const fileTree = await this.getFileTreeRepresentation(parentFolder, 0, true);
 		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
@@ -236,6 +251,7 @@ export default class Waypoint extends Plugin {
 	 */
 	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile> {
 		this.log("Locating parent waypoint of " + node.name);
+		console.log("Locating parent waypoint of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
 			const folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
@@ -260,8 +276,11 @@ export default class Waypoint extends Plugin {
 	 */
 	getParentFolder(path: string): TFolder {
 		const abstractFile = this.app.vault.getAbstractFileByPath(path.split("/").slice(0, -1).join("/"));
+		const abstractOutsideFolder = this.app.vault.getAbstractFileByPath(path.replace('.md', ''));
 		if (abstractFile instanceof TFolder) {
 			return abstractFile;
+		} else if (abstractOutsideFolder instanceof TFolder) {
+			return abstractOutsideFolder;
 		} else {
 			return null;
 		}
