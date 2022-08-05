@@ -103,11 +103,17 @@ export default class Waypoint extends Plugin {
 			return file.basename == file.parent.name;
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 			if (file.parent) {
-				console.log(file);
-				const potentialFolderNote = this.app.vault.getAbstractFileByPath(file.parent.path + "/" + file.basename);
-				return potentialFolderNote instanceof TFolder;
+				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
 			}
 			return false;
+		}
+	}
+
+	getCleanParentPath(node: TAbstractFile): string {
+		if (node.parent instanceof TFolder && node.parent.isRoot()) {
+			return "";
+		} else {
+			return node.parent.path + "/";
 		}
 	}
 
@@ -140,7 +146,7 @@ export default class Waypoint extends Plugin {
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 			fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
-			const folder = await this.app.vault.getAbstractFileByPath(file.parent.path + "/" + file.basename);
+			const folder = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename);
 			if (folder instanceof TFolder) {
 				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
@@ -235,7 +241,6 @@ export default class Waypoint extends Plugin {
 								folderNames.add(element.name + ".md");
 							}
 						}
-						console.log(children);
 						children = children.filter(child => child instanceof TFolder || !folderNames.has(child.name));
 					}
 				}
@@ -261,6 +266,9 @@ export default class Waypoint extends Plugin {
 	 * @returns The encoded path
 	 */
 	getEncodedUri(rootNode: TFolder, node: TAbstractFile) {
+		if (rootNode.isRoot()) {
+			return `./${encodeURI(node.path)}`;
+		}
 		return `./${encodeURI(node.path.substring(rootNode.path.length + 1))}`;
 	}
 
@@ -312,9 +320,7 @@ export default class Waypoint extends Plugin {
 				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
 			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 				if (folder.parent) {
-					folderNote = this.app.vault.getAbstractFileByPath(folder.parent.path + "/" + folder.name + ".md");
-					console.log("Folder note potential path");
-					console.log(folder.parent.path + "/" + folder.name + ".md");
+					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
 				}
 			}
 			if (folderNote instanceof TFile) {
