@@ -5,7 +5,8 @@ interface WaypointSettings {
 	stopScanAtFolderNotes: boolean,
 	showFolderNotes: boolean,
 	debugLogging: boolean,
-	useWikiLinks: boolean
+	useWikiLinks: boolean,
+	showEnclosingNote: boolean
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -13,7 +14,8 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	stopScanAtFolderNotes: false,
 	showFolderNotes: false,
 	debugLogging: false,
-	useWikiLinks: true
+	useWikiLinks: true,
+	showEnclosingNote: false
 }
 
 export default class Waypoint extends Plugin {
@@ -149,6 +151,7 @@ export default class Waypoint extends Plugin {
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
+			// Print the file name
 			if (node.path.endsWith(".md")) {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${node.basename}]]`;
@@ -158,32 +161,38 @@ export default class Waypoint extends Plugin {
 			}
 			return null;
 		} else if (node instanceof TFolder) {
-			let text = `${bullet} **${node.name}**`;
-			const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
-			if (folderNote instanceof TFile) {
-				if (this.settings.useWikiLinks) {
-					text = `${bullet} **[[${folderNote.basename}]]**`;
-				} else {
-					text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
-				}
-				if (!topLevel) {
-					if (this.settings.stopScanAtFolderNotes) {
-						return text;
+			let text = "";
+			if (!topLevel || this.settings.showEnclosingNote) {
+				// Print the folder name
+				text = `${bullet} **${node.name}**`;
+				const folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
+				if (folderNote instanceof TFile) {
+					if (this.settings.useWikiLinks) {
+						text = `${bullet} **[[${folderNote.basename}]]**`;
 					} else {
-						const content = await this.app.vault.cachedRead(folderNote);
-						if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(this.settings.waypointFlag)) {
+						text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
+					}
+					if (!topLevel) {
+						if (this.settings.stopScanAtFolderNotes) {
 							return text;
+						} else {
+							const content = await this.app.vault.cachedRead(folderNote);
+							if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(this.settings.waypointFlag)) {
+								return text;
+							}
 						}
 					}
 				}
 			}
 			if (node.children && node.children.length > 0) {
+				// Print the files and nested folders within the folder
 				let children = node.children;
 				children = children.sort((a, b) => {
 					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 				}).filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
 				if (children.length > 0) {
-					text += "\n" + (await Promise.all(children.map(child => this.getFileTreeRepresentation(rootNode, child, indentLevel + 1))))
+					const nextIndentLevel = (topLevel && !this.settings.showEnclosingNote) ? indentLevel : indentLevel + 1;
+					text += (text === "" ? "" : "\n") + (await Promise.all(children.map(child => this.getFileTreeRepresentation(rootNode, child, nextIndentLevel))))
 					.filter(Boolean)
 					.join("\n");
 				}
@@ -312,6 +321,16 @@ class WaypointSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showFolderNotes)
 				.onChange(async (value) => {
 					this.plugin.settings.showFolderNotes = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Show Enclosing Note")
+			.setDesc("If enabled, the name of the folder note containing the waypoint will be listed at the top of the generated waypoints.")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showEnclosingNote)
+				.onChange(async (value) => {
+					this.plugin.settings.showEnclosingNote = value;
 					await this.plugin.saveSettings();
 				})
 			);
