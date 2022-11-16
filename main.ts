@@ -9,6 +9,7 @@ interface WaypointSettings {
 	waypointFlag: string
 	stopScanAtFolderNotes: boolean,
 	showFolderNotes: boolean,
+	showNonMarkdownFiles: boolean,
 	debugLogging: boolean,
 	useWikiLinks: boolean,
 	showEnclosingNote: boolean,
@@ -19,6 +20,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	waypointFlag: "%% Waypoint %%",
 	stopScanAtFolderNotes: false,
 	showFolderNotes: false,
+	showNonMarkdownFiles: false,
 	debugLogging: false,
 	useWikiLinks: true,
 	showEnclosingNote: false,
@@ -185,12 +187,19 @@ export default class Waypoint extends Plugin {
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
+			console.log(node)
 			// Print the file name
-			if (node.path.endsWith(".md")) {
+			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${node.basename}]]`;
 				} else {
 					return `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
+				}
+			} else if (this.settings.showNonMarkdownFiles) {
+				if (this.settings.useWikiLinks) {
+					return `${bullet} [[${node.name}]]`;
+				} else {
+					return `${bullet} [${node.name}](${this.getEncodedUri(rootNode, node)})`;
 				}
 			}
 			return null;
@@ -397,6 +406,16 @@ class WaypointSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.showFolderNotes)
 				.onChange(async (value) => {
 					this.plugin.settings.showFolderNotes = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Show Non-Markdown Files")
+			.setDesc("If enabled, non-Markdown files will be listed alongside other notes in the generated waypoints.")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showNonMarkdownFiles)
+				.onChange(async (value) => {
+					this.plugin.settings.showNonMarkdownFiles = value;
 					await this.plugin.saveSettings();
 				})
 			);
