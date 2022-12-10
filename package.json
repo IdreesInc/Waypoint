@@ -1,6 +1,6 @@
 {
 	"name": "waypoint",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"description": "Easily generate dynamic content maps in your folder notes. Enables folders to show up in the graph view and removes the need for messy tags!",
 	"main": "main.js",
 	"scripts": {
