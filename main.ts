@@ -159,26 +159,22 @@ export default class Waypoint extends Plugin {
 	isFolderNote(file: TFile): boolean {
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 			return file.basename == file.parent.name;
-		} else if (
-			this.settings.folderNoteType === FolderNoteType.OutsideFolder
-		) {
-			if (file.parent) {
-				return (
-					this.app.vault.getAbstractFileByPath(
-						this.getCleanParentPath(file) + file.basename
-					) instanceof TFolder
-				);
-			}
-			return false;
 		}
+		if (file.parent) {
+			return (
+				this.app.vault.getAbstractFileByPath(
+					this.getCleanParentPath(file) + file.basename
+				) instanceof TFolder
+			);
+		}
+		return false;
 	}
 
 	getCleanParentPath(node: TAbstractFile): string {
 		if (node.parent instanceof TFolder && node.parent.isRoot()) {
 			return "";
-		} else {
-			return node.parent.path + "/";
 		}
+		return node.parent.path + "/";
 	}
 
 	async printError(file: TFile, error: string, flagType: string) {
@@ -215,37 +211,24 @@ export default class Waypoint extends Plugin {
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
 
-	async setBeginPoint(flag: string): Promise<string> | null {
-		switch (flag) {
-			case "Waypoint":
-				return Waypoint.BEGIN_WAYPOINT;
-			case "Landmark":
-				return Waypoint.BEGIN_LANDMARK;
-			default:
-				return null;
+	async setPoints(flag: string): Promise<[string, string] | [null, null]> {
+		if (flag == "Waypoint") {
+			return [Waypoint.BEGIN_WAYPOINT, Waypoint.END_WAYPOINT];
 		}
-	}
-
-	async setEndPoint(flag: string): Promise<string> | null {
-		switch (flag) {
-			case "Waypoint":
-				return Waypoint.END_WAYPOINT;
-			case "Landmark":
-				return Waypoint.END_LANDMARK;
-			default:
-				return null;
+		if (flag == "Landmark") {
+			return [Waypoint.BEGIN_LANDMARK, Waypoint.END_LANDMARK];
 		}
+		return [null, null];
 	}
 
 	async setPostFlag(flag: string): Promise<string> | null {
-		switch (flag) {
-			case "Waypoint":
-				return this.settings.waypointFlag;
-			case "Landmark":
-				return this.settings.landmarkFlag;
-			default:
-				return null;
+		if (flag == "Waypoint") {
+			return this.settings.waypointFlag;
 		}
+		if (flag == "Landmark") {
+			return this.settings.landmarkFlag;
+		}
+		return null;
 	}
 
 	/**
@@ -266,9 +249,7 @@ export default class Waypoint extends Plugin {
 				0,
 				true
 			);
-		} else if (
-			this.settings.folderNoteType === FolderNoteType.OutsideFolder
-		) {
+		} else {
 			const folder = this.app.vault.getAbstractFileByPath(
 				this.getCleanParentPath(file) + file.basename
 			);
@@ -281,8 +262,7 @@ export default class Waypoint extends Plugin {
 				);
 			}
 		}
-		const beginPoint = await this.setBeginPoint(flagType);
-		const endPoint = await this.setEndPoint(flagType);
+		const [beginPoint, endPoint] = await this.setPoints(flagType);
 		const point = `${beginPoint}\n${fileTree}\n\n${endPoint}`;
 		if (beginPoint === null || endPoint === null) {
 			console.error(
@@ -306,7 +286,9 @@ export default class Waypoint extends Plugin {
 				(trimmed === "%% " + postFlag + " %%" || trimmed === beginPoint)
 			) {
 				waypointStart = i;
-			} else if (waypointStart !== -1 && trimmed === endPoint) {
+				continue;
+			}
+			if (waypointStart !== -1 && trimmed === endPoint) {
 				waypointEnd = i;
 				break;
 			}
@@ -343,143 +325,124 @@ export default class Waypoint extends Plugin {
 		topLevel = false
 	): Promise<string> | null {
 		const bullet = "	".repeat(indentLevel) + "-";
+		if (!(node instanceof TFile) && !(node instanceof TFolder)) {
+			return null;
+		}
 		if (node instanceof TFile) {
-			if (this.settings.debugLogging) {
-				console.log(node);
-			}
+			// if (this.settings.debugLogging) {
+			console.log(node);
+			// }
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${node.basename}]]`;
-				} else {
-					return `${bullet} [${node.basename}](${this.getEncodedUri(
-						rootNode,
-						node
-					)})`;
 				}
-			} else if (this.settings.showNonMarkdownFiles) {
+				return `${bullet} [${node.basename}](${this.getEncodedUri(
+					rootNode,
+					node
+				)})`;
+			}
+			if (this.settings.showNonMarkdownFiles) {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${node.name}]]`;
-				} else {
-					return `${bullet} [${node.name}](${this.getEncodedUri(
-						rootNode,
-						node
-					)})`;
 				}
+				return `${bullet} [${node.name}](${this.getEncodedUri(
+					rootNode,
+					node
+				)})`;
 			}
 			return null;
-		} else if (node instanceof TFolder) {
-			let text = "";
-			if (!topLevel || this.settings.showEnclosingNote) {
-				// Print the folder name
-				text = `${bullet} **${node.name}**`;
-				let folderNote;
-				if (
-					this.settings.folderNoteType === FolderNoteType.InsideFolder
-				) {
-					folderNote = this.app.vault.getAbstractFileByPath(
-						node.path + "/" + node.name + ".md"
-					);
-				} else if (
-					this.settings.folderNoteType ===
-					FolderNoteType.OutsideFolder
-				) {
-					if (node.parent) {
-						folderNote = this.app.vault.getAbstractFileByPath(
-							node.parent.path + "/" + node.name + ".md"
-						);
-					}
-				}
-				if (folderNote instanceof TFile) {
-					if (this.settings.useWikiLinks) {
-						text = `${bullet} **[[${folderNote.basename}]]**`;
-					} else {
-						text = `${bullet} **[${
-							folderNote.basename
-						}](${this.getEncodedUri(rootNode, folderNote)})**`;
-					}
-					if (!topLevel) {
-						if (this.settings.stopScanAtFolderNotes) {
-							return text;
-						} else {
-							const content = await this.app.vault.cachedRead(
-								folderNote
-							);
-							if (
-								content.includes(Waypoint.BEGIN_WAYPOINT) ||
-								content.includes(
-									"%% " + this.settings.waypointFlag + " %%"
-								)
-							) {
-								return text;
-							}
-						}
-					}
-				}
+		}
+		let text = "";
+		if (!topLevel || this.settings.showEnclosingNote) {
+			// Print the folder name
+			text = `${bullet} **${node.name}**`;
+			let folderNote;
+			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+				folderNote = this.app.vault.getAbstractFileByPath(
+					node.path + "/" + node.name + ".md"
+				);
+			} else if (node.parent) {
+				folderNote = this.app.vault.getAbstractFileByPath(
+					node.parent.path + "/" + node.name + ".md"
+				);
 			}
-			if (node.children && node.children.length > 0) {
-				// Print the files and nested folders within the folder
-				let children = node.children;
-				children = children.sort((a, b) => {
-					return a.name.localeCompare(b.name, undefined, {
-						numeric: true,
-						sensitivity: "base",
-					});
-				});
-				if (!this.settings.showFolderNotes) {
+			if (folderNote instanceof TFile) {
+				if (this.settings.useWikiLinks) {
+					text = `${bullet} **[[${folderNote.basename}]]**`;
+				}
+				text = `${bullet} **[${
+					folderNote.basename
+				}](${this.getEncodedUri(rootNode, folderNote)})**`;
+				if (!topLevel) {
+					if (this.settings.stopScanAtFolderNotes) {
+						return text;
+					}
+					const content = await this.app.vault.cachedRead(folderNote);
 					if (
-						this.settings.folderNoteType ===
-						FolderNoteType.InsideFolder
+						content.includes(Waypoint.BEGIN_WAYPOINT) ||
+						content.includes(
+							"%% " + this.settings.waypointFlag + " %%"
+						)
 					) {
-						children = children.filter(
-							(child) =>
-								this.settings.showFolderNotes ||
-								child.name !== node.name + ".md"
-						);
-					} else if (
-						this.settings.folderNoteType ===
-						FolderNoteType.OutsideFolder
-					) {
-						const folderNames = new Set();
-						for (const element of children) {
-							if (element instanceof TFolder) {
-								folderNames.add(element.name + ".md");
-							}
-						}
-						children = children.filter(
-							(child) =>
-								child instanceof TFolder ||
-								!folderNames.has(child.name)
-						);
+						return text;
 					}
 				}
-				if (children.length > 0) {
-					const nextIndentLevel =
-						topLevel && !this.settings.showEnclosingNote
-							? indentLevel
-							: indentLevel + 1;
-					text +=
-						(text === "" ? "" : "\n") +
-						(
-							await Promise.all(
-								children.map((child) =>
-									this.getFileTreeRepresentation(
-										rootNode,
-										child,
-										nextIndentLevel
-									)
-								)
-							)
-						)
-							.filter(Boolean)
-							.join("\n");
-				}
-				return text;
-			} else {
-				return `${bullet} **${node.name}**`;
 			}
 		}
-		return null;
+		if (!node.children || node.children.length == 0) {
+			return `${bullet} **${node.name}**`;
+		}
+		// Print the files and nested folders within the folder
+		let children = node.children;
+		children = children.sort((a, b) => {
+			return a.name.localeCompare(b.name, undefined, {
+				numeric: true,
+				sensitivity: "base",
+			});
+		});
+		if (!this.settings.showFolderNotes) {
+			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+				children = children.filter(
+					(child) =>
+						this.settings.showFolderNotes ||
+						child.name !== node.name + ".md"
+				);
+			} else {
+				const folderNames = new Set();
+				for (const element of children) {
+					if (element instanceof TFolder) {
+						folderNames.add(element.name + ".md");
+					}
+				}
+				children = children.filter(
+					(child) =>
+						child instanceof TFolder || !folderNames.has(child.name)
+				);
+			}
+		}
+		if (children.length > 0) {
+			const nextIndentLevel =
+				topLevel && !this.settings.showEnclosingNote
+					? indentLevel
+					: indentLevel + 1;
+			text +=
+				(text === "" ? "" : "\n") +
+				(
+					await Promise.all(
+						children.map((child) =>
+							this.getFileTreeRepresentation(
+								rootNode,
+								child,
+								nextIndentLevel
+							)
+						)
+					)
+				)
+					.filter(Boolean)
+					.join("\n");
+		}
+		return text;
 	}
 
 	/**
@@ -521,17 +484,9 @@ export default class Waypoint extends Plugin {
 		node: TAbstractFile,
 		includeCurrentNode: boolean
 	) => {
-		const parentFlag = await this.locateParentFlag(
+		const [parentFlag, parentPoint] = await this.locateParentPoint(
 			node,
 			includeCurrentNode
-		);
-		if (parentFlag === null) {
-			return;
-		}
-		const parentPoint = await this.locateParentPoint(
-			node,
-			includeCurrentNode,
-			parentFlag
 		);
 		if (parentPoint === null) {
 			return;
@@ -546,11 +501,11 @@ export default class Waypoint extends Plugin {
 	 * @param includeCurrentNode Whether to include the given folder in the search
 	 * @returns The ancestor waypoint, or null if none was found
 	 */
-	async locateParentFlag(
+	async locateParentPoint(
 		node: TAbstractFile,
 		includeCurrentNode: boolean
-	): Promise<string> | null {
-		this.log("Locating parent flag of " + node.name);
+	): Promise<[string, TFile]> {
+		this.log("Locating parent flag and file of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
 			let folderNote;
@@ -558,9 +513,7 @@ export default class Waypoint extends Plugin {
 				folderNote = this.app.vault.getAbstractFileByPath(
 					folder.path + "/" + folder.name + ".md"
 				);
-			} else if (
-				this.settings.folderNoteType === FolderNoteType.OutsideFolder
-			) {
+			} else {
 				if (folder.parent) {
 					folderNote = this.app.vault.getAbstractFileByPath(
 						this.getCleanParentPath(folder) + folder.name + ".md"
@@ -574,82 +527,21 @@ export default class Waypoint extends Plugin {
 					text.includes(Waypoint.BEGIN_WAYPOINT) ||
 					text.includes("%% " + this.settings.waypointFlag + " %%")
 				) {
-					this.log("Found parent flag of: waypoint!");
-					return "Waypoint";
-				} else if (
+					this.log("Found parent waypoint!");
+					return ["Waypoint", folderNote];
+				}
+				if (
 					text.includes(Waypoint.BEGIN_LANDMARK) ||
 					text.includes("%% " + this.settings.landmarkFlag + " %%")
 				) {
-					this.log("Found parent flag of: landmark!");
-					return "Landmark";
+					this.log("Found parent landmark!");
+					return ["Landmark", folderNote];
 				}
 			}
 			folder = folder.parent;
 		}
 		this.log("No parent flag found.");
-		return null;
-	}
-
-	/**
-	 * Locate the ancestor waypoint (if any) of the given file/folder.
-	 * @param node The node to start the search from
-	 * @param includeCurrentNode Whether to include the given folder in the search
-	 * @returns The ancestor waypoint, or null if none was found
-	 */
-	async locateParentPoint(
-		node: TAbstractFile,
-		includeCurrentNode: boolean,
-		flagType: string
-	): Promise<TFile> {
-		if (flagType === "" || flagType === null) {
-			console.error(
-				"Error: No flag type was passed to locateParentPoint."
-			);
-			return;
-		}
-		this.log(
-			"Locating parent " + flagType.toLowerCase() + " of " + node.name
-		);
-		let folder = includeCurrentNode ? node : node.parent;
-		const postFlag = await this.setPostFlag(flagType);
-		const beginPoint = await this.setBeginPoint(flagType);
-		if (postFlag === null || beginPoint === null) {
-			console.error(
-				"Error: Could not determine the flag/opening tag for the type: " +
-					flagType
-			);
-			return null;
-		}
-		while (folder) {
-			let folderNote;
-			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				folderNote = this.app.vault.getAbstractFileByPath(
-					folder.path + "/" + folder.name + ".md"
-				);
-			} else if (
-				this.settings.folderNoteType === FolderNoteType.OutsideFolder
-			) {
-				if (folder.parent) {
-					folderNote = this.app.vault.getAbstractFileByPath(
-						this.getCleanParentPath(folder) + folder.name + ".md"
-					);
-				}
-			}
-			if (folderNote instanceof TFile) {
-				this.log("Found folder note: " + folderNote.path);
-				const text = await this.app.vault.cachedRead(folderNote);
-				if (
-					text.includes(beginPoint) ||
-					text.includes("%% " + postFlag + " %%")
-				) {
-					this.log("Found parent " + flagType.toLowerCase() + "!");
-					return folderNote;
-				}
-			}
-			folder = folder.parent;
-		}
-		this.log("No parent " + flagType.toLowerCase() + " found.");
-		return null;
+		return [null, null];
 	}
 
 	/**
@@ -663,9 +555,8 @@ export default class Waypoint extends Plugin {
 		);
 		if (abstractFile instanceof TFolder) {
 			return abstractFile;
-		} else {
-			return null;
 		}
+		return null;
 	}
 
 	log(message: string) {
