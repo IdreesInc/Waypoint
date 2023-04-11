@@ -1,6 +1,7 @@
 import {
 	App,
 	debounce,
+	normalizePath,
 	Plugin,
 	PluginSettingTab,
 	Setting,
@@ -24,6 +25,7 @@ interface WaypointSettings {
 	useWikiLinks: boolean;
 	showEnclosingNote: boolean;
 	folderNoteType: string;
+	ignorePaths: string[];
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -36,6 +38,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	useWikiLinks: true,
 	showEnclosingNote: false,
 	folderNoteType: FolderNoteType.InsideFolder,
+	ignorePaths: ["_attachments"],
 };
 
 export default class Waypoint extends Plugin {
@@ -324,14 +327,18 @@ export default class Waypoint extends Plugin {
 		indentLevel: number,
 		topLevel = false
 	): Promise<string> | null {
-		const bullet = "	".repeat(indentLevel) + "-";
+		const bullet = "  ".repeat(indentLevel) + "-";
 		if (!(node instanceof TFile) && !(node instanceof TFolder)) {
 			return null;
 		}
+		this.log(node.path);
+		if (this.ignorePath(node.path)) {
+			return null;
+		}
 		if (node instanceof TFile) {
-			// if (this.settings.debugLogging) {
-			console.log(node);
-			// }
+			if (this.settings.debugLogging) {
+				console.log(node);
+			}
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
@@ -405,8 +412,9 @@ export default class Waypoint extends Plugin {
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 				children = children.filter(
 					(child) =>
-						this.settings.showFolderNotes ||
-						child.name !== node.name + ".md"
+						(this.settings.showFolderNotes ||
+							child.name !== node.name + ".md") &&
+						!this.ignorePath(child.path)
 				);
 			} else {
 				const folderNames = new Set();
@@ -417,7 +425,9 @@ export default class Waypoint extends Plugin {
 				}
 				children = children.filter(
 					(child) =>
-						child instanceof TFolder || !folderNames.has(child.name)
+						(child instanceof TFolder ||
+							!folderNames.has(child.name)) &&
+						!this.ignorePath(child.path)
 				);
 			}
 		}
@@ -456,6 +466,21 @@ export default class Waypoint extends Plugin {
 			return `./${encodeURI(node.path)}`;
 		}
 		return `./${encodeURI(node.path.substring(rootNode.path.length + 1))}`;
+	}
+
+	ignorePath(path: string): boolean {
+		let found = false;
+		this.settings.ignorePaths.forEach((comparePath) => {
+			const regex = new RegExp(comparePath);
+			if (path.match(regex)) {
+				this.log(`Ignoring path: ${path}`);
+				found = true;
+			}
+		});
+		if (found) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -609,6 +634,17 @@ class WaypointSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		// new Setting(containerEl)
+		// 	.setName("Debug Plugin")
+		// 	.setDesc("If enabled, the plugin will create extensive logs.")
+		// 	.addToggle((toggle) =>
+		// 		toggle
+		// 			.setValue(this.plugin.settings.debugLogging)
+		// 			.onChange(async (value) => {
+		// 				this.plugin.settings.debugLogging = value;
+		// 				await this.plugin.saveSettings();
+		// 			})
+		// 	);
 		new Setting(containerEl)
 			.setName("Show Folder Notes")
 			.setDesc(
@@ -724,6 +760,25 @@ class WaypointSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+		new Setting(containerEl)
+			.setName("Ignored Files/Folders")
+			.setDesc(
+				"Regex ready list of files or folders to ignore while making" +
+					" indexes. Please only enter one per line."
+			)
+			.addTextArea((text) =>
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.ignorePaths.join("\n"))
+					.setValue(this.plugin.settings.ignorePaths.join("\n"))
+					.onChange(async (value) => {
+						const paths = value
+							.trim()
+							.split("\n")
+							.map((value) => this.getNormalizedPath(value));
+						this.plugin.settings.ignorePaths = paths;
+						await this.plugin.saveSettings();
+					})
+			);
 		const postscriptElement = containerEl.createEl("div", {
 			cls: "setting-item",
 		});
@@ -745,5 +800,9 @@ class WaypointSettingsTab extends PluginSettingTab {
 			text: "@IdreesInc",
 		});
 		postscriptElement.appendChild(descriptionElement);
+	}
+
+	getNormalizedPath(path: string): string {
+		return path.length == 0 ? path : normalizePath(path);
 	}
 }
