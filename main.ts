@@ -1,4 +1,4 @@
-import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder } from 'obsidian';
+import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder, TextComponent, ToggleComponent } from 'obsidian';
 
 enum FolderNoteType {
 	InsideFolder = "INSIDE_FOLDER",
@@ -13,7 +13,9 @@ interface WaypointSettings {
 	debugLogging: boolean,
 	useWikiLinks: boolean,
 	showEnclosingNote: boolean,
-	folderNoteType: string
+	folderNoteType: string,
+	useSpaces: boolean,
+	numSpaces: number,
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -24,7 +26,9 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	debugLogging: false,
 	useWikiLinks: true,
 	showEnclosingNote: false,
-	folderNoteType: FolderNoteType.InsideFolder
+	folderNoteType: FolderNoteType.InsideFolder,
+	useSpaces: false,
+	numSpaces: 2,
 }
 
 export default class Waypoint extends Plugin {
@@ -85,7 +89,7 @@ export default class Waypoint extends Plugin {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
 					await this.updateParentWaypoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
-					return;	
+					return;
 				} else if (file.parent.isRoot()) {
 					this.log("Found waypoint flag in root folder.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
@@ -153,7 +157,7 @@ export default class Waypoint extends Plugin {
 				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
 		}
-		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
+		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointStart = -1;
@@ -185,7 +189,8 @@ export default class Waypoint extends Plugin {
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
-		const bullet = "	".repeat(indentLevel) + "-";
+		const indent = this.settings.useSpaces ? (" ").repeat(this.settings.numSpaces) : "	";
+		const bullet = indent.repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
 			console.log(node)
 			// Print the file name
@@ -362,7 +367,7 @@ export default class Waypoint extends Plugin {
 
 	log(message: string) {
 		if (this.settings.debugLogging) {
-			console.log(message);			
+			console.log(message);
 		}
 	}
 
@@ -446,6 +451,29 @@ class WaypointSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.useWikiLinks)
 				.onChange(async (value) => {
 					this.plugin.settings.useWikiLinks = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Use Spaces for Indentation")
+			.setDesc("If enabled, the waypoint list will be indented with spaces rather than with tabs.")
+			.addToggle((toggle: ToggleComponent) => toggle
+				.setValue(this.plugin.settings.useSpaces)
+				.onChange(async (value: boolean) => {
+					this.plugin.settings.useSpaces = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Number of Spaces for Indentation")
+			.setDesc("If use spaces is enabled, this is the number of spaces that will be used for indentation")
+			.addText((text: TextComponent) => text
+				.setPlaceholder("2")
+				.setValue("" + this.plugin.settings.numSpaces)
+				.onChange(async (value: string) => {
+					let num = parseInt(value, 10);
+					if (isNaN(num)) return;
+					this.plugin.settings.numSpaces = num;
 					await this.plugin.saveSettings();
 				})
 			);
