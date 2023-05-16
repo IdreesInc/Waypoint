@@ -13,7 +13,8 @@ interface WaypointSettings {
 	debugLogging: boolean,
 	useWikiLinks: boolean,
 	showEnclosingNote: boolean,
-	folderNoteType: string
+	folderNoteType: string,
+	waypointPriorityKey: string
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -24,7 +25,9 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	debugLogging: false,
 	useWikiLinks: true,
 	showEnclosingNote: false,
-	folderNoteType: FolderNoteType.InsideFolder
+	folderNoteType: FolderNoteType.InsideFolder,
+	waypointPriorityKey: "waypointPriority"
+
 }
 
 export default class Waypoint extends Plugin {
@@ -187,7 +190,7 @@ export default class Waypoint extends Plugin {
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
-			console.log(node)
+			this.log(node)
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
@@ -237,9 +240,8 @@ export default class Waypoint extends Plugin {
 			if (node.children && node.children.length > 0) {
 				// Print the files and nested folders within the folder
 				let children = node.children;
-				children = children.sort((a, b) => {
-					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
-				});
+				this.log(`node: ${node.name}, children: ${children.map(c => c.name)}`)
+				children = children.sort(this.sortWithPriority);
 				if (!this.settings.showFolderNotes) {
 					if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 						children = children.filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
@@ -360,9 +362,9 @@ export default class Waypoint extends Plugin {
 		}
 	}
 
-	log(message: string) {
+	log(message?: any) {
 		if (this.settings.debugLogging) {
-			console.log(message);			
+			console.log(message);
 		}
 	}
 
@@ -373,6 +375,45 @@ export default class Waypoint extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	getWaypointPriority = (a: TAbstractFile): number | null => {
+		if (a instanceof TFile) {
+			let fileCache = this.app.metadataCache.getFileCache(a as TFile)
+			if (fileCache && fileCache.frontmatter && typeof fileCache.frontmatter.waypointPriority === 'number') {
+				return fileCache.frontmatter.waypointPriority;
+			} else {
+				return null;
+			}
+		} else {
+			return null;
+		}
+	}
+
+    sortWithPriority = (a: TAbstractFile, b: TAbstractFile): number => {
+        this.log(`comparing ${a.name} and ${b.name}`)
+        let aPriority = this.getWaypointPriority(a)
+        let bPriority = this.getWaypointPriority(b)
+        this.log(`aPriority ${aPriority} bPriority ${bPriority}`)
+
+        if (aPriority !== null && bPriority !== null) {
+            // If both have waypointPriority, the one with a lower priority number should come first.
+            this.log(`${aPriority - bPriority}`)
+            return aPriority - bPriority
+        } else if (aPriority !== null) {
+            // If only `a` has waypointPriority, `a` should come first.
+            this.log(-1)
+            return -1
+        } else if (bPriority !== null) {
+            // If only `b` has waypointPriority, `b` should come first.
+            this.log(1)
+            return 1
+        } else {
+            // If neither has priority, sort alphabetically.
+            this.log(`${a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'})}`)
+            return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+        }
+    }
+
 }
 
 class WaypointSettingsTab extends PluginSettingTab {
