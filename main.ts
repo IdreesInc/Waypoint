@@ -389,30 +389,30 @@ export default class Waypoint extends Plugin {
 		}
 	}
 
-    sortWithPriority = (a: TAbstractFile, b: TAbstractFile): number => {
-        this.log(`comparing ${a.name} and ${b.name}`)
-        let aPriority = this.getWaypointPriority(a)
-        let bPriority = this.getWaypointPriority(b)
-        this.log(`aPriority ${aPriority} bPriority ${bPriority}`)
+	sortWithPriority = (a: TAbstractFile, b: TAbstractFile): number => {
+		this.log(`comparing ${a.name} and ${b.name}`)
+		let aPriority = this.getWaypointPriority(a)
+		let bPriority = this.getWaypointPriority(b)
+		this.log(`aPriority ${aPriority} bPriority ${bPriority}`)
 
-        if (aPriority !== null && bPriority !== null) {
-            // If both have waypointPriority, the one with a lower priority number should come first.
-            this.log(`${aPriority - bPriority}`)
-            return aPriority - bPriority
-        } else if (aPriority !== null) {
-            // If only `a` has waypointPriority, `a` should come first.
-            this.log(-1)
-            return -1
-        } else if (bPriority !== null) {
-            // If only `b` has waypointPriority, `b` should come first.
-            this.log(1)
-            return 1
-        } else {
-            // If neither has priority, sort alphabetically.
-            this.log(`${a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'})}`)
-            return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
-        }
-    }
+		if (aPriority !== null && bPriority !== null) {
+			// If both have waypointPriority, the one with a lower priority number should come first.
+			this.log(`${aPriority - bPriority}`)
+			return aPriority - bPriority
+		} else if (aPriority !== null) {
+			// If only `a` has waypointPriority, `a` should come first.
+			this.log(-1)
+			return -1
+		} else if (bPriority !== null) {
+			// If only `b` has waypointPriority, `b` should come first.
+			this.log(1)
+			return 1
+		} else {
+			// If neither has priority, sort alphabetically.
+			this.log(`${a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'})}`)
+			return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+		}
+	}
 
 }
 
