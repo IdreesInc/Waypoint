@@ -93,7 +93,7 @@ export default class Waypoint extends Plugin {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
 					await this.updateParentWaypoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
-					return;	
+					return;
 				} else if (file.parent.isRoot()) {
 					this.log("Found waypoint flag in root folder.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
@@ -180,8 +180,15 @@ export default class Waypoint extends Plugin {
 			return;
 		}
 		this.log("Waypoint found at " + waypointStart + " to " + waypointEnd);
-		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, waypoint);
-		await this.app.vault.modify(file, lines.join("\n"));
+
+		// Get the current waypoint block from lines and join it to form a string
+		let currentWaypoint = waypointEnd !== -1 ? lines.slice(waypointStart, waypointEnd + 1).join("\n") : lines[waypointStart];
+		// Only splice and modify if waypoint differs from the current block
+		if (currentWaypoint !== waypoint) {
+			this.log("Waypoint content changed, updating")
+			lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, waypoint);
+			await this.app.vault.modify(file, lines.join("\n"));
+		}
 	}
 
 	/**
