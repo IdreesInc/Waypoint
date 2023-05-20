@@ -63,7 +63,12 @@ export default class Waypoint extends Plugin {
 				}
 				this.scheduleUpdate();
 			}));
-			this.registerEvent(this.app.vault.on("modify", this.detectWaypointFlag));
+			this.registerEvent(this.app.vault.on("modify", (file) => {
+				this.log("modify " + file.name);
+				this.foldersWithChanges.add(file.parent);
+				this.scheduleUpdate();
+				this.detectWaypointFlag(file as TFile)
+			 }));
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
