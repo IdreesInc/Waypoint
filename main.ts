@@ -396,7 +396,12 @@ export default class Waypoint extends Plugin {
 			} else {
 				return null;
 			}
-		} else {
+		} else if (a instanceof TFolder) {
+			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+				let foldernote: TAbstractFile | null = a.children.find(child => child instanceof TFile && child.basename === a.name);
+				return foldernote ? this.getWaypointPriority(foldernote) : null
+			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
+			}
 			return null;
 		}
 	}
@@ -405,23 +410,20 @@ export default class Waypoint extends Plugin {
 		this.log(`comparing ${a.name} and ${b.name}`)
 		let aPriority = this.getWaypointPriority(a)
 		let bPriority = this.getWaypointPriority(b)
-		this.log(`aPriority ${aPriority} bPriority ${bPriority}`)
-
 		if (aPriority !== null && bPriority !== null) {
 			// If both have waypointPriority, the one with a lower priority number should come first.
-			this.log(`${aPriority - bPriority}`)
 			return aPriority - bPriority
 		} else if (aPriority !== null) {
 			// If only `a` has waypointPriority, `a` should come first.
-			this.log(-1)
+			this.log(`${a.name}`)
 			return -1
 		} else if (bPriority !== null) {
 			// If only `b` has waypointPriority, `b` should come first.
-			this.log(1)
+			this.log(`${b.name}`)
 			return 1
 		} else {
 			// If neither has priority, sort alphabetically.
-			this.log(`${a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'})}`)
+			this.log(`alphabetical`)
 			return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 		}
 	}
