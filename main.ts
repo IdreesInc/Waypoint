@@ -92,7 +92,7 @@ export default class Waypoint extends Plugin {
 				if (this.isFolderNote(file)) {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
-					await this.updateParentWaypoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
+					await this.updateAncestorWaypoints(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
 					return;
 				} else if (file.parent.isRoot()) {
 					this.log("Found waypoint flag in root folder.");
@@ -302,10 +302,7 @@ export default class Waypoint extends Plugin {
 		this.log("Updating changed folders...");
 		this.foldersWithChanges.forEach((folder) => {
 			this.log("Updating " + folder.path);
-			// Development note: simplified way of making changes in a note reflect in "grandparent" folder
-			// example change in a folder note priority say c/arrays/arrays.md And I would like this
-			// to take effect on `c` waypoint
-			this.updateParentWaypoint(folder.parent, true);
+			this.updateAncestorWaypoints(folder, true);
 		});
 		this.foldersWithChanges.clear();
 	}
@@ -328,6 +325,18 @@ export default class Waypoint extends Plugin {
 		const parentWaypoint = await this.locateParentWaypoint(node, includeCurrentNode);
 		if (parentWaypoint !== null) {
 			this.updateWaypoint(parentWaypoint);
+		}
+	}
+
+	/**
+	 * Update all ancestor waypoints (if any) of the given file/folder.
+	 * @param node The node to start the search from
+	 * @param includeCurrentNode Whether to include the given folder in the search
+	 */
+	updateAncestorWaypoints = async (node: TAbstractFile, includeCurrentNode: boolean) => {
+		const ancestorWaypoints = await this.locateAncestorWaypoints(node, includeCurrentNode);
+		for (let waypoint of ancestorWaypoints) {
+			this.updateWaypoint(waypoint);
 		}
 	}
 
@@ -361,6 +370,40 @@ export default class Waypoint extends Plugin {
 		}
 		this.log("No parent waypoint found.");
 		return null;
+	}
+
+	/**
+	 * Locate all ancestor waypoints (if any) of the given file/folder.
+	 * @param node The node to start the search from
+	 * @param includeCurrentNode Whether to include the given folder in the search
+	 * @returns The list of ancestor waypoints, or an empty list if none were found
+	 */
+	async locateAncestorWaypoints(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile[]> {
+		this.log("Locating all ancestor waypoints of " + node.name);
+		let folder = includeCurrentNode ? node : node.parent;
+		let ancestorWaypoints = [];
+
+		while (folder) {
+			let folderNote;
+			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
+			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
+				if (folder.parent) {
+					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
+				}
+			}
+			if (folderNote instanceof TFile) {
+				this.log("Found folder note: " + folderNote.path);
+				const text = await this.app.vault.cachedRead(folderNote);
+				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(this.settings.waypointFlag)) {
+					this.log("Found ancestor waypoint!");
+					ancestorWaypoints.push(folderNote);
+				}
+			}
+			folder = folder.parent;
+		}
+		this.log("Found " + ancestorWaypoints.length + " ancestor waypoints.");
+		return ancestorWaypoints;
 	}
 
 	/**
