@@ -302,7 +302,10 @@ export default class Waypoint extends Plugin {
 		this.log("Updating changed folders...");
 		this.foldersWithChanges.forEach((folder) => {
 			this.log("Updating " + folder.path);
-			this.updateParentWaypoint(folder, true);
+			// Development note: simplified way of making changes in a note reflect in "grandparent" folder
+			// example change in a folder note priority say c/arrays/arrays.md And I would like this
+			// to take effect on `c` waypoint
+			this.updateParentWaypoint(folder.parent, true);
 		});
 		this.foldersWithChanges.clear();
 	}
