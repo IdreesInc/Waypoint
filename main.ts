@@ -202,7 +202,6 @@ export default class Waypoint extends Plugin {
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
-			this.log(node)
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
@@ -252,7 +251,6 @@ export default class Waypoint extends Plugin {
 			if (node.children && node.children.length > 0) {
 				// Print the files and nested folders within the folder
 				let children = node.children;
-				this.log(`node: ${node.name}, children: ${children.map(c => c.name)}`)
 				children = children.sort(this.sortWithPriority);
 				if (!this.settings.showFolderNotes) {
 					if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
@@ -453,7 +451,6 @@ export default class Waypoint extends Plugin {
 	}
 
 	sortWithPriority = (a: TAbstractFile, b: TAbstractFile): number => {
-		this.log(`comparing ${a.name} and ${b.name}`)
 		let aPriority = this.getWaypointPriority(a)
 		let bPriority = this.getWaypointPriority(b)
 		if (aPriority !== null && bPriority !== null) {
@@ -461,15 +458,12 @@ export default class Waypoint extends Plugin {
 			return aPriority - bPriority
 		} else if (aPriority !== null) {
 			// If only `a` has waypointPriority, `a` should come first.
-			this.log(`${a.name}`)
 			return -1
 		} else if (bPriority !== null) {
 			// If only `b` has waypointPriority, `b` should come first.
-			this.log(`${b.name}`)
 			return 1
 		} else {
 			// If neither has priority, sort alphabetically.
-			this.log(`alphabetical`)
 			return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 		}
 	}
