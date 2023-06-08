@@ -388,20 +388,27 @@ export default class Waypoint extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	getWaypointPriority = (a: TAbstractFile): number | null => {
-		if (a instanceof TFile) {
-			let fileCache = this.app.metadataCache.getFileCache(a as TFile)
+	getWaypointPriority = (file: TAbstractFile): number | null => {
+		if (file instanceof TFile) {
+			let fileCache = this.app.metadataCache.getFileCache(file as TFile)
 			if (fileCache && fileCache.frontmatter && typeof fileCache.frontmatter.waypointPriority === 'number') {
 				return fileCache.frontmatter.waypointPriority;
 			} else {
 				return null;
 			}
-		} else if (a instanceof TFolder) {
+		} else if (file instanceof TFolder) {
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				let foldernote: TAbstractFile | null = a.children.find(child => child instanceof TFile && child.basename === a.name);
+				// If file is a folder and folder note is an inside note, attempt to find a child note with the same name.
+				let foldernote: TAbstractFile | null = file.children.find(child => child instanceof TFile && child.basename === file.name);
 				return foldernote ? this.getWaypointPriority(foldernote) : null
 			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
-				// Development note: Implemenent for "outside folder" use case
+				// If file is a folder and folder note is an outside note, attempt to find a sibling note with the same name.
+                if (!file.isRoot()) {
+                    let foldernote: TAbstractFile | null = file.parent.children.find(child => child instanceof TFile && child.basename === file.name);
+                    return foldernote ? this.getWaypointPriority(foldernote) : null;
+                } else {
+                    return null; // Handle case when the file is the root folder.
+                }
 			}
 			return null;
 		}
