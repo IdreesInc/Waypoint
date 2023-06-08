@@ -391,8 +391,8 @@ export default class Waypoint extends Plugin {
 	getWaypointPriority = (file: TAbstractFile): number | null => {
 		if (file instanceof TFile) {
 			let fileCache = this.app.metadataCache.getFileCache(file as TFile)
-			if (fileCache && fileCache.frontmatter && typeof fileCache.frontmatter.waypointPriority === 'number') {
-				return fileCache.frontmatter.waypointPriority;
+			if (fileCache && fileCache.frontmatter && typeof fileCache.frontmatter[this.settings.waypointPriorityKey] === 'number') {
+				return fileCache.frontmatter[this.settings.waypointPriorityKey];
 			} else {
 				return null;
 			}
@@ -522,6 +522,17 @@ class WaypointSettingsTab extends PluginSettingTab {
 						console.error("Error: Waypoint flag must be surrounded by double-percent signs.");
 					}
 					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Frontmatter key for note priority")
+			.setDesc("The frontmatter key to set the note order piority when listed in a Waypoint.")
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.waypointPriorityKey)
+				.setValue(this.plugin.settings.waypointPriorityKey)
+				.onChange(async (value) => {
+					this.plugin.settings.waypointPriorityKey = value;
+					await this.plugin.saveSettings()
 				})
 			);
 		const postscriptElement = containerEl.createEl("div", {
