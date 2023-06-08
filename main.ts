@@ -315,18 +315,6 @@ export default class Waypoint extends Plugin {
 	);
 
 	/**
-	 * Update the ancestor waypoint (if any) of the given file/folder.
-	 * @param node The node to start the search from
-	 * @param includeCurrentNode Whether to include the given folder in the search
-	 */
-	updateParentWaypoint = async (node: TAbstractFile, includeCurrentNode: boolean) => {
-		const parentWaypoint = await this.locateParentWaypoint(node, includeCurrentNode);
-		if (parentWaypoint !== null) {
-			this.updateWaypoint(parentWaypoint);
-		}
-	}
-
-	/**
 	 * Update all ancestor waypoints (if any) of the given file/folder.
 	 * @param node The node to start the search from
 	 * @param includeCurrentNode Whether to include the given folder in the search
@@ -336,38 +324,6 @@ export default class Waypoint extends Plugin {
 		for (let waypoint of ancestorWaypoints) {
 			this.updateWaypoint(waypoint);
 		}
-	}
-
-	/**
-	 * Locate the ancestor waypoint (if any) of the given file/folder.
-	 * @param node The node to start the search from
-	 * @param includeCurrentNode Whether to include the given folder in the search
-	 * @returns The ancestor waypoint, or null if none was found
-	 */
-	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile> {
-		this.log("Locating parent waypoint of " + node.name);
-		let folder = includeCurrentNode ? node : node.parent;
-		while (folder) {
-			let folderNote;
-			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
-			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
-				if (folder.parent) {
-					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
-				}
-			}
-			if (folderNote instanceof TFile) {
-				this.log("Found folder note: " + folderNote.path);
-				const text = await this.app.vault.cachedRead(folderNote);
-				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(this.settings.waypointFlag)) {
-					this.log("Found parent waypoint!");
-					return folderNote;
-				}
-			}
-			folder = folder.parent;
-		}
-		this.log("No parent waypoint found.");
-		return null;
 	}
 
 	/**
@@ -445,6 +401,7 @@ export default class Waypoint extends Plugin {
 				let foldernote: TAbstractFile | null = a.children.find(child => child instanceof TFile && child.basename === a.name);
 				return foldernote ? this.getWaypointPriority(foldernote) : null
 			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
+				// Development note: Implemenent for "outside folder" use case
 			}
 			return null;
 		}
