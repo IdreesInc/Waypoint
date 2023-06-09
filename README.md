@@ -40,6 +40,11 @@ By default, notes in Waypoint are sorted alphabetically. However, you can organi
 ---
 waypointPriority: 0
 ---
+
+# My note
+
+...
+
 ```
 
 Waypoint will then sort the notes based on the numeric value assigned to `waypointPriority`. Smaller values correspond to higher priority, so a note with `waypointPriority: 0` will appear above a note with `waypointPriority: 1`. If two notes have the same priority, they will be sorted alphabetically.
