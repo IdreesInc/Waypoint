@@ -32,6 +32,23 @@ Waypoint is an Obsidian plugin that automatically generates tables of contents/M
 
 Note that since waypoints can only be generated in folder notes, **it is highly recommended that you install a plugin like [Folder Note](https://github.com/xpgo/obsidian-folder-note-plugin)** to ensure that folder notes don't get lost after folder renames and other actions that change the file tree. If a folder note containing a waypoint is renamed to something other than the folder's name, the waypoint will no longer be updated.
 
+### Ordering Notes on Waypoint
+
+By default, notes in Waypoint are sorted alphabetically. However, you can organize your notes in a specific order by setting up their Waypoint priorities. To do this, you would add an entry in your [note metadata](https://help.obsidian.md/Editing+and+formatting/Metadata) with a numeric value, such as:
+
+```markdown
+---
+waypointPriority: 0
+---
+```
+
+Waypoint will then sort the notes based on the numeric value assigned to `waypointPriority`. Smaller values correspond to higher priority, so a note with `waypointPriority: 0` will appear above a note with `waypointPriority: 1`. If two notes have the same priority, they will be sorted alphabetically.
+
+In case a note does not have a `waypointPriority` defined, it will fall back to the default alphabetical sorting strategy.
+
+The `waypointPriority` key can be customized to a different key label in the Waypoint settings. This functionality works for both regulat notes and folder notes.
+
+
 ## Current Limitations
 
 - **Waypoints can only be created within a folder note**
