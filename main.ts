@@ -13,7 +13,8 @@ interface WaypointSettings {
 	debugLogging: boolean,
 	useWikiLinks: boolean,
 	showEnclosingNote: boolean,
-	folderNoteType: string
+	folderNoteType: string,
+	waypointPriorityKey: string
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -24,7 +25,9 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	debugLogging: false,
 	useWikiLinks: true,
 	showEnclosingNote: false,
-	folderNoteType: FolderNoteType.InsideFolder
+	folderNoteType: FolderNoteType.InsideFolder,
+	waypointPriorityKey: "waypointPriority"
+
 }
 
 export default class Waypoint extends Plugin {
@@ -60,7 +63,12 @@ export default class Waypoint extends Plugin {
 				}
 				this.scheduleUpdate();
 			}));
-			this.registerEvent(this.app.vault.on("modify", this.detectWaypointFlag));
+			this.registerEvent(this.app.vault.on("modify", (file) => {
+				this.log("modify " + file.name);
+				this.foldersWithChanges.add(file.parent);
+				this.scheduleUpdate();
+				this.detectWaypointFlag(file as TFile)
+			 }));
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
@@ -84,8 +92,8 @@ export default class Waypoint extends Plugin {
 				if (this.isFolderNote(file)) {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
-					await this.updateParentWaypoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
-					return;	
+					await this.updateAncestorWaypoints(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
+					return;
 				} else if (file.parent.isRoot()) {
 					this.log("Found waypoint flag in root folder.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
@@ -172,8 +180,15 @@ export default class Waypoint extends Plugin {
 			return;
 		}
 		this.log("Waypoint found at " + waypointStart + " to " + waypointEnd);
-		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, waypoint);
-		await this.app.vault.modify(file, lines.join("\n"));
+
+		// Get the current waypoint block from lines and join it to form a string
+		let currentWaypoint = waypointEnd !== -1 ? lines.slice(waypointStart, waypointEnd + 1).join("\n") : lines[waypointStart];
+		// Only splice and modify if waypoint differs from the current block
+		if (currentWaypoint !== waypoint) {
+			this.log("Waypoint content changed, updating")
+			lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, waypoint);
+			await this.app.vault.modify(file, lines.join("\n"));
+		}
 	}
 
 	/**
@@ -187,7 +202,6 @@ export default class Waypoint extends Plugin {
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
-			console.log(node)
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
@@ -237,9 +251,7 @@ export default class Waypoint extends Plugin {
 			if (node.children && node.children.length > 0) {
 				// Print the files and nested folders within the folder
 				let children = node.children;
-				children = children.sort((a, b) => {
-					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
-				});
+				children = children.sort(this.sortWithPriority);
 				if (!this.settings.showFolderNotes) {
 					if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 						children = children.filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
@@ -288,7 +300,7 @@ export default class Waypoint extends Plugin {
 		this.log("Updating changed folders...");
 		this.foldersWithChanges.forEach((folder) => {
 			this.log("Updating " + folder.path);
-			this.updateParentWaypoint(folder, true);
+			this.updateAncestorWaypoints(folder, true);
 		});
 		this.foldersWithChanges.clear();
 	}
@@ -303,26 +315,28 @@ export default class Waypoint extends Plugin {
 	);
 
 	/**
-	 * Update the ancestor waypoint (if any) of the given file/folder.
+	 * Update all ancestor waypoints (if any) of the given file/folder.
 	 * @param node The node to start the search from
 	 * @param includeCurrentNode Whether to include the given folder in the search
 	 */
-	updateParentWaypoint = async (node: TAbstractFile, includeCurrentNode: boolean) => {
-		const parentWaypoint = await this.locateParentWaypoint(node, includeCurrentNode);
-		if (parentWaypoint !== null) {
-			this.updateWaypoint(parentWaypoint);
+	updateAncestorWaypoints = async (node: TAbstractFile, includeCurrentNode: boolean) => {
+		const ancestorWaypoints = await this.locateAncestorWaypoints(node, includeCurrentNode);
+		for (let waypoint of ancestorWaypoints) {
+			this.updateWaypoint(waypoint);
 		}
 	}
 
 	/**
-	 * Locate the ancestor waypoint (if any) of the given file/folder.
+	 * Locate all ancestor waypoints (if any) of the given file/folder.
 	 * @param node The node to start the search from
 	 * @param includeCurrentNode Whether to include the given folder in the search
-	 * @returns The ancestor waypoint, or null if none was found
+	 * @returns The list of ancestor waypoints, or an empty list if none were found
 	 */
-	async locateParentWaypoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile> {
-		this.log("Locating parent waypoint of " + node.name);
+	async locateAncestorWaypoints(node: TAbstractFile, includeCurrentNode: boolean): Promise<TFile[]> {
+		this.log("Locating all ancestor waypoints of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
+		let ancestorWaypoints = [];
+
 		while (folder) {
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
@@ -336,14 +350,14 @@ export default class Waypoint extends Plugin {
 				this.log("Found folder note: " + folderNote.path);
 				const text = await this.app.vault.cachedRead(folderNote);
 				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(this.settings.waypointFlag)) {
-					this.log("Found parent waypoint!");
-					return folderNote;
+					this.log("Found ancestor waypoint!");
+					ancestorWaypoints.push(folderNote);
 				}
 			}
 			folder = folder.parent;
 		}
-		this.log("No parent waypoint found.");
-		return null;
+		this.log("Found " + ancestorWaypoints.length + " ancestor waypoints.");
+		return ancestorWaypoints;
 	}
 
 	/**
@@ -360,9 +374,9 @@ export default class Waypoint extends Plugin {
 		}
 	}
 
-	log(message: string) {
+	log(message?: any) {
 		if (this.settings.debugLogging) {
-			console.log(message);			
+			console.log(message);
 		}
 	}
 
@@ -373,6 +387,51 @@ export default class Waypoint extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+
+	getWaypointPriority = (file: TAbstractFile): number | null => {
+		if (file instanceof TFile) {
+			let fileCache = this.app.metadataCache.getFileCache(file as TFile)
+			if (fileCache && fileCache.frontmatter && typeof fileCache.frontmatter[this.settings.waypointPriorityKey] === 'number') {
+				return fileCache.frontmatter[this.settings.waypointPriorityKey];
+			} else {
+				return null;
+			}
+		} else if (file instanceof TFolder) {
+			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+				// If file is a folder and folder note is an inside note, attempt to find a child note with the same name.
+				let foldernote: TAbstractFile | null = file.children.find(child => child instanceof TFile && child.basename === file.name);
+				return foldernote ? this.getWaypointPriority(foldernote) : null
+			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
+				// If file is a folder and folder note is an outside note, attempt to find a sibling note with the same name.
+                if (!file.isRoot()) {
+                    let foldernote: TAbstractFile | null = file.parent.children.find(child => child instanceof TFile && child.basename === file.name);
+                    return foldernote ? this.getWaypointPriority(foldernote) : null;
+                } else {
+                    return null; // Handle case when the file is the root folder.
+                }
+			}
+			return null;
+		}
+	}
+
+	sortWithPriority = (a: TAbstractFile, b: TAbstractFile): number => {
+		let aPriority = this.getWaypointPriority(a)
+		let bPriority = this.getWaypointPriority(b)
+		if (aPriority !== null && bPriority !== null) {
+			// If both have waypointPriority, the one with a lower priority number should come first.
+			return aPriority - bPriority
+		} else if (aPriority !== null) {
+			// If only `a` has waypointPriority, `a` should come first.
+			return -1
+		} else if (bPriority !== null) {
+			// If only `b` has waypointPriority, `b` should come first.
+			return 1
+		} else {
+			// If neither has priority, sort alphabetically.
+			return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+		}
+	}
+
 }
 
 class WaypointSettingsTab extends PluginSettingTab {
@@ -463,6 +522,17 @@ class WaypointSettingsTab extends PluginSettingTab {
 						console.error("Error: Waypoint flag must be surrounded by double-percent signs.");
 					}
 					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Frontmatter key for note priority")
+			.setDesc("The frontmatter key to set the note order piority when listed in a Waypoint.")
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.waypointPriorityKey)
+				.setValue(this.plugin.settings.waypointPriorityKey)
+				.onChange(async (value) => {
+					this.plugin.settings.waypointPriorityKey = value;
+					await this.plugin.saveSettings()
 				})
 			);
 		const postscriptElement = containerEl.createEl("div", {
