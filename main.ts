@@ -6,7 +6,8 @@ enum FolderNoteType {
 }
 
 interface WaypointSettings {
-	waypointFlag: string
+	folderNotesPrefix: string
+	waypointFlag: string,
 	stopScanAtFolderNotes: boolean,
 	showFolderNotes: boolean,
 	showNonMarkdownFiles: boolean,
@@ -17,6 +18,7 @@ interface WaypointSettings {
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
+	folderNotesPrefix: "_",
 	waypointFlag: "%% Waypoint %%",
 	stopScanAtFolderNotes: false,
 	showFolderNotes: false,
@@ -102,7 +104,7 @@ export default class Waypoint extends Plugin {
 
 	isFolderNote(file: TFile): boolean {
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-			return file.basename == file.parent.name;
+			return file.basename == this.settings.folderNotesPrefix + file.parent.name;
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 			if (file.parent) {
 				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
@@ -242,7 +244,7 @@ export default class Waypoint extends Plugin {
 				});
 				if (!this.settings.showFolderNotes) {
 					if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-						children = children.filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
+						children = children.filter(child => this.settings.showFolderNotes || child.name !== this.settings.folderNotesPrefix + node.name + ".md");
 					} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 						const folderNames = new Set();
 						for (const element of children) {
@@ -387,6 +389,21 @@ class WaypointSettingsTab extends PluginSettingTab {
 		const {containerEl} = this;
 		containerEl.empty();
 		containerEl.createEl('h2', {text: 'Waypoint Settings'});
+		new Setting(containerEl)
+			.setName("Folder Notes Prefix")
+			.setDesc("Allow prefix to be added to the folder notes filename.")
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.folderNotesPrefix)
+				.setValue(this.plugin.settings.folderNotesPrefix)
+				.onChange(async (value) => {
+					if (value) {
+						this.plugin.settings.folderNotesPrefix = value;
+					} else {
+						this.plugin.settings.folderNotesPrefix = DEFAULT_SETTINGS.folderNotesPrefix;
+					}
+					await this.plugin.saveSettings();
+				})
+			);
 		new Setting(this.containerEl)
 			.setName("Folder Note Style")
 			.setDesc("Select the style of folder note used.")
