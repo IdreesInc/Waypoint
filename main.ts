@@ -107,7 +107,7 @@ export default class Waypoint extends Plugin {
 			return file.basename == this.settings.folderNotesPrefix + file.parent.name;
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 			if (file.parent) {
-				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
+				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename.substring(this.settings.folderNotesPrefix.length)) instanceof TFolder;
 			}
 			return false;
 		}
@@ -150,7 +150,7 @@ export default class Waypoint extends Plugin {
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 			fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
-			const folder = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename);
+			const folder = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename.substring(this.settings.folderNotesPrefix.length));
 			if (folder instanceof TFolder) {
 				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
@@ -328,10 +328,10 @@ export default class Waypoint extends Plugin {
 		while (folder) {
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
+				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + this.settings.folderNotesPrefix + folder.name + ".md");
 			} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 				if (folder.parent) {
-					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
+					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + this.settings.folderNotesPrefix + folder.name + ".md");
 				}
 			}
 			if (folderNote instanceof TFile) {
