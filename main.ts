@@ -13,7 +13,8 @@ interface WaypointSettings {
 	debugLogging: boolean,
 	useWikiLinks: boolean,
 	showEnclosingNote: boolean,
-	folderNoteType: string
+	folderNoteType: string,
+	useJohnnyDecimal: boolean
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -24,7 +25,8 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	debugLogging: false,
 	useWikiLinks: true,
 	showEnclosingNote: false,
-	folderNoteType: FolderNoteType.InsideFolder
+	folderNoteType: FolderNoteType.InsideFolder,
+	useJohnnyDecimal: false
 }
 
 export default class Waypoint extends Plugin {
@@ -102,7 +104,16 @@ export default class Waypoint extends Plugin {
 
 	isFolderNote(file: TFile): boolean {
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-			return file.basename == file.parent.name;
+			var fileParentFolder = file.parent.name;
+			var fileName = file.basename;
+			if (fileParentFolder == fileName){
+			  return true;
+			}
+			else {
+			  // Get parent name without Johnny Decimal
+			  fileParentFolder = this.removeJohnnyDecimal(fileParentFolder)
+			}
+			return fileName == fileParentFolder;
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 			if (file.parent) {
 				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
@@ -242,7 +253,7 @@ export default class Waypoint extends Plugin {
 				});
 				if (!this.settings.showFolderNotes) {
 					if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-						children = children.filter(child => this.settings.showFolderNotes || child.name !== node.name + ".md");
+						children = children.filter((child) => this.settings.showFolderNotes || child.name !== (this.settings.useJohnnyDecimal ?  this.removeJohnnyDecimal(node.name) : node.name) + ".md");
 					} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 						const folderNames = new Set();
 						for (const element of children) {
@@ -373,6 +384,14 @@ export default class Waypoint extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 	}
+	removeJohnnyDecimal(fileParentFolder: string) {
+		if (/^\d\d\.\d\d\s/.test(fileParentFolder)){
+		  return fileParentFolder.substring(6)
+		}
+		else if (/^\d\d\s/.test(fileParentFolder)){
+		  return fileParentFolder.substring(3)
+		}
+	  }
 }
 
 class WaypointSettingsTab extends PluginSettingTab {
