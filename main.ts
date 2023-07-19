@@ -393,7 +393,6 @@ class WaypointSettingsTab extends PluginSettingTab {
 			.setName("Folder Notes Prefix")
 			.setDesc("Allow prefix to be added to the folder notes filename.")
 			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.folderNotesPrefix)
 				.setValue(this.plugin.settings.folderNotesPrefix)
 				.onChange(async (value) => {
 					this.plugin.settings.folderNotesPrefix = value;
