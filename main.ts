@@ -396,11 +396,7 @@ class WaypointSettingsTab extends PluginSettingTab {
 				.setPlaceholder(DEFAULT_SETTINGS.folderNotesPrefix)
 				.setValue(this.plugin.settings.folderNotesPrefix)
 				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.folderNotesPrefix = value;
-					} else {
-						this.plugin.settings.folderNotesPrefix = DEFAULT_SETTINGS.folderNotesPrefix;
-					}
+					this.plugin.settings.folderNotesPrefix = value;
 					await this.plugin.saveSettings();
 				})
 			);
