@@ -195,19 +195,19 @@ export default class Waypoint extends Plugin {
 			// Print the file name
 			if (node.extension == "md") {
 					text = this.settings.useWikiLinks
-						? `1: ${bullet} [[${node.path}|${node.basename}]]`
-						: `2: ${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
+						? `${bullet} [[${node.path}|${node.basename}]]`
+						: `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
 			} else if (this.settings.showNonMarkdownFiles) {
 					text = this.settings.useWikiLinks
-						? `3: ${bullet} [[${node.path}|${node.name}]]`
-						: `4: ${bullet} [${node.name}](${this.getEncodedUri(rootNode, node)})`;
+						? `${bullet} [[${node.path}|${node.name}]]`
+						: `${bullet} [${node.name}](${this.getEncodedUri(rootNode, node)})`;
 			}
 			return text;
 			
 		} else if (node instanceof TFolder) {
 			if (!topLevel || this.settings.showEnclosingNote) {
 				// Print the folder name
-				text = `5: ${bullet} **${node.name}**`;
+				text = `${bullet} **${node.name}**`;
 				let folderNotePath = "/" + this.settings.folderNotesPrefix + node.name + ".md"
 				folderNotePath = this.settings.folderNoteType === FolderNoteType.InsideFolder
 					? node.path + folderNotePath
@@ -217,8 +217,8 @@ export default class Waypoint extends Plugin {
 				const folderNote = this.app.vault.getAbstractFileByPath(folderNotePath);
 				if (folderNote instanceof TFile) {
 						text = this.settings.useWikiLinks
-							? `6: ${bullet} **[[${folderNotePath}|${folderNote.parent.name}]]**`
-							: `7: ${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
+							? `${bullet} **[[${folderNotePath}|${folderNote.parent.name}]]**`
+							: `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
 					if (!topLevel) {
 						if (this.settings.stopScanAtFolderNotes) {
 							return text;
@@ -258,7 +258,7 @@ export default class Waypoint extends Plugin {
 				}
 				return text;
 			} else {
-				return `8: ${bullet} **${node.name}**`;
+				return `${bullet} **${node.name}**`;
 			}
 
 		}
