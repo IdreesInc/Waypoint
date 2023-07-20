@@ -59,8 +59,8 @@ export default class Waypoint extends Plugin {
 				const parentFolder = this.getParentFolder(oldPath);
 				if (parentFolder !== null) {
 					this.foldersWithChanges.add(parentFolder);
+					this.scheduleUpdate();
 				}
-				this.scheduleUpdate();
 			}));
 			this.registerEvent(this.app.vault.on("modify", this.detectWaypointFlag));
 		});
@@ -107,7 +107,8 @@ export default class Waypoint extends Plugin {
 			return file.basename == this.settings.folderNotesPrefix + file.parent.name;
 		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
 			if (file.parent) {
-				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename.substring(this.settings.folderNotesPrefix.length)) instanceof TFolder;
+				const folderName = file.basename.substring(this.settings.folderNotesPrefix.length)
+				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + folderName) instanceof TFolder;
 			}
 			return false;
 		}
@@ -188,57 +189,51 @@ export default class Waypoint extends Plugin {
 	 */
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
 		const bullet = "	".repeat(indentLevel) + "-";
+		let text = ""
+
 		if (node instanceof TFile) {
-			console.log(node)
 			// Print the file name
 			if (node.extension == "md") {
-				if (this.settings.useWikiLinks) {
-					return `${bullet} [[${node.basename}]]`;
-				} else {
-					return `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
-				}
+					text = this.settings.useWikiLinks
+						? `1: ${bullet} [[${node.path}|${node.basename}]]`
+						: `2: ${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
 			} else if (this.settings.showNonMarkdownFiles) {
-				if (this.settings.useWikiLinks) {
-					return `${bullet} [[${node.name}]]`;
-				} else {
-					return `${bullet} [${node.name}](${this.getEncodedUri(rootNode, node)})`;
-				}
+					text = this.settings.useWikiLinks
+						? `3: ${bullet} [[${node.path}|${node.name}]]`
+						: `4: ${bullet} [${node.name}](${this.getEncodedUri(rootNode, node)})`;
 			}
-			return null;
+			return text;
+			
 		} else if (node instanceof TFolder) {
-			let text = "";
 			if (!topLevel || this.settings.showEnclosingNote) {
 				// Print the folder name
-				text = `${bullet} **${node.name}**`;
-				let folderNote;
-				if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-					folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
-				} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
-					if (node.parent) {
-						folderNote = this.app.vault.getAbstractFileByPath(node.parent.path + "/" + node.name + ".md");
-					}
-				}
+				text = `5: ${bullet} **${node.name}**`;
+				let folderNotePath = "/" + this.settings.folderNotesPrefix + node.name + ".md"
+				folderNotePath = this.settings.folderNoteType === FolderNoteType.InsideFolder
+					? node.path + folderNotePath
+					: this.settings.folderNoteType === FolderNoteType.OutsideFolder && node.parent
+						? node.parent.path + folderNotePath
+						: folderNotePath;
+				const folderNote = this.app.vault.getAbstractFileByPath(folderNotePath);
 				if (folderNote instanceof TFile) {
-					if (this.settings.useWikiLinks) {
-						text = `${bullet} **[[${folderNote.basename}]]**`;
-					} else {
-						text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
-					}
+						text = this.settings.useWikiLinks
+							? `6: ${bullet} **[[${folderNotePath}|${folderNote.parent.name}]]**`
+							: `7: ${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
 					if (!topLevel) {
 						if (this.settings.stopScanAtFolderNotes) {
 							return text;
 						} else {
 							const content = await this.app.vault.cachedRead(folderNote);
 							if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(this.settings.waypointFlag)) {
-								return text;
+								// return text;
 							}
 						}
 					}
 				}
 			}
-			if (node.children && node.children.length > 0) {
+			let children = node.children;
+			if (children && children.length > 0) {
 				// Print the files and nested folders within the folder
-				let children = node.children;
 				children = children.sort((a, b) => {
 					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
 				});
@@ -263,7 +258,7 @@ export default class Waypoint extends Plugin {
 				}
 				return text;
 			} else {
-				return `${bullet} **${node.name}**`;
+				return `8: ${bullet} **${node.name}**`;
 			}
 
 		}
@@ -393,14 +388,9 @@ class WaypointSettingsTab extends PluginSettingTab {
 			.setName("Folder Notes Prefix")
 			.setDesc("Allow prefix to be added to the folder notes filename.")
 			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.folderNotesPrefix)
 				.setValue(this.plugin.settings.folderNotesPrefix)
 				.onChange(async (value) => {
-					if (value) {
-						this.plugin.settings.folderNotesPrefix = value;
-					} else {
-						this.plugin.settings.folderNotesPrefix = DEFAULT_SETTINGS.folderNotesPrefix;
-					}
+					this.plugin.settings.folderNotesPrefix = value;
 					await this.plugin.saveSettings();
 				})
 			);
