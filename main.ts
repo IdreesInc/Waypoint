@@ -270,6 +270,7 @@ export default class Waypoint extends Plugin {
 	): Promise<string> | null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
+			console.log(node);
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
