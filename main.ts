@@ -2,7 +2,8 @@ import { App, debounce, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile,
 
 enum FolderNoteType {
 	InsideFolder = "INSIDE_FOLDER",
-	OutsideFolder = "OUTSIDE_FOLDER"
+	OutsideFolder = "OUTSIDE_FOLDER",
+	CustomFilename = "CUSTOM_FILENAME"
 }
 
 interface WaypointSettings {
@@ -13,7 +14,9 @@ interface WaypointSettings {
 	debugLogging: boolean,
 	useWikiLinks: boolean,
 	showEnclosingNote: boolean,
-	folderNoteType: string
+	folderNoteType: string,
+	folderNoteFilename: string
+
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -24,7 +27,8 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	debugLogging: false,
 	useWikiLinks: true,
 	showEnclosingNote: false,
-	folderNoteType: FolderNoteType.InsideFolder
+	folderNoteType: FolderNoteType.InsideFolder,
+	folderNoteFilename: "index"
 }
 
 export default class Waypoint extends Plugin {
@@ -85,7 +89,7 @@ export default class Waypoint extends Plugin {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
 					await this.updateParentWaypoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
-					return;	
+					return;
 				} else if (file.parent.isRoot()) {
 					this.log("Found waypoint flag in root folder.");
 					this.printWaypointError(file, `%% Error: Cannot create a waypoint in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`);
@@ -108,7 +112,10 @@ export default class Waypoint extends Plugin {
 				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
 			}
 			return false;
+		} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+			return file.basename == this.settings.folderNoteFilename;
 		}
+
 	}
 
 	getCleanParentPath(node: TAbstractFile): string {
@@ -152,6 +159,8 @@ export default class Waypoint extends Plugin {
 			if (folder instanceof TFolder) {
 				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
+		} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+			fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
 		}
 		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
 		const text = await this.app.vault.read(file);
@@ -184,7 +193,7 @@ export default class Waypoint extends Plugin {
 	 * @param topLevel Whether this is the top level of the tree or not
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
-	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string>|null {
+	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string> | null {
 		const bullet = "	".repeat(indentLevel) + "-";
 		if (node instanceof TFile) {
 			console.log(node)
@@ -215,6 +224,8 @@ export default class Waypoint extends Plugin {
 					if (node.parent) {
 						folderNote = this.app.vault.getAbstractFileByPath(node.parent.path + "/" + node.name + ".md");
 					}
+				} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+					folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + this.settings.folderNoteFilename + ".md");
 				}
 				if (folderNote instanceof TFile) {
 					if (this.settings.useWikiLinks) {
@@ -238,7 +249,7 @@ export default class Waypoint extends Plugin {
 				// Print the files and nested folders within the folder
 				let children = node.children;
 				children = children.sort((a, b) => {
-					return a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'});
+					return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 				});
 				if (!this.settings.showFolderNotes) {
 					if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
@@ -251,13 +262,15 @@ export default class Waypoint extends Plugin {
 							}
 						}
 						children = children.filter(child => child instanceof TFolder || !folderNames.has(child.name));
+					} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+						children = children.filter(child => this.settings.showFolderNotes || child.name !== this.settings.folderNoteFilename + ".md");
 					}
 				}
 				if (children.length > 0) {
 					const nextIndentLevel = (topLevel && !this.settings.showEnclosingNote) ? indentLevel : indentLevel + 1;
 					text += (text === "" ? "" : "\n") + (await Promise.all(children.map(child => this.getFileTreeRepresentation(rootNode, child, nextIndentLevel))))
-					.filter(Boolean)
-					.join("\n");
+						.filter(Boolean)
+						.join("\n");
 				}
 				return text;
 			} else {
@@ -331,6 +344,8 @@ export default class Waypoint extends Plugin {
 				if (folder.parent) {
 					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
 				}
+			} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + this.settings.folderNoteFilename + ".md");
 			}
 			if (folderNote instanceof TFile) {
 				this.log("Found folder note: " + folderNote.path);
@@ -362,7 +377,7 @@ export default class Waypoint extends Plugin {
 
 	log(message: string) {
 		if (this.settings.debugLogging) {
-			console.log(message);			
+			console.log(message);
 		}
 	}
 
@@ -384,18 +399,29 @@ class WaypointSettingsTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl('h2', {text: 'Waypoint Settings'});
+		containerEl.createEl('h2', { text: 'Waypoint Settings' });
 		new Setting(this.containerEl)
 			.setName("Folder Note Style")
 			.setDesc("Select the style of folder note used.")
 			.addDropdown((dropdown) => dropdown
 				.addOption(FolderNoteType.InsideFolder, "Folder Name Inside")
 				.addOption(FolderNoteType.OutsideFolder, "Folder Name Outside")
+				.addOption(FolderNoteType.CustomFilename, "Custom Filename")
 				.setValue(this.plugin.settings.folderNoteType)
 				.onChange(async (value) => {
 					this.plugin.settings.folderNoteType = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Folder Note Filename")
+			.setDesc("The filename of the folder note. Only used if the folder note style is set to Custom Filename.")
+			.addText(text => text
+				.setValue(this.plugin.settings.folderNoteFilename)
+				.onChange(async (value) => {
+					this.plugin.settings.folderNoteFilename = value;
 					await this.plugin.saveSettings();
 				})
 			);
@@ -468,10 +494,10 @@ class WaypointSettingsTab extends PluginSettingTab {
 		const postscriptElement = containerEl.createEl("div", {
 			cls: "setting-item",
 		});
-		const descriptionElement = postscriptElement.createDiv({cls: "setting-item-description"});
-		descriptionElement.createSpan({text: "For instructions on how to use this plugin, check out the README on "});
+		const descriptionElement = postscriptElement.createDiv({ cls: "setting-item-description" });
+		descriptionElement.createSpan({ text: "For instructions on how to use this plugin, check out the README on " });
 		descriptionElement.createEl("a", { attr: { "href": "https://github.com/IdreesInc/Waypoint" }, text: "GitHub" });
-		descriptionElement.createSpan({text: " or get in touch with the author "});
+		descriptionElement.createSpan({ text: " or get in touch with the author " });
 		descriptionElement.createEl("a", { attr: { "href": "https://twitter.com/IdreesInc" }, text: "@IdreesInc" });
 		postscriptElement.appendChild(descriptionElement);
 	}
