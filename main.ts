@@ -126,7 +126,7 @@ export default class Waypoint extends Plugin {
 		let waypointIndex = -1;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (trimmed === this.settings.waypointFlag) {
+			if (trimmed.includes(this.settings.waypointFlag)) {
 				waypointIndex = i;
 			}
 		}
@@ -153,14 +153,17 @@ export default class Waypoint extends Plugin {
 				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
 		}
-		const waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
+		let waypoint = `${Waypoint.BEGIN_WAYPOINT}\n${fileTree}\n\n${Waypoint.END_WAYPOINT}`;
+
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointStart = -1;
 		let waypointEnd = -1;
+		let isCallout;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (waypointStart === -1 && (trimmed === this.settings.waypointFlag || trimmed === Waypoint.BEGIN_WAYPOINT)) {
+			if (waypointStart === -1 && (trimmed.includes(this.settings.waypointFlag) || trimmed.includes(Waypoint.BEGIN_WAYPOINT))) {
+				isCallout = trimmed.startsWith(">");
 				waypointStart = i;
 			} else if (waypointStart !== -1 && trimmed === (Waypoint.END_WAYPOINT)) {
 				waypointEnd = i;
@@ -172,6 +175,11 @@ export default class Waypoint extends Plugin {
 			return;
 		}
 		this.log("Waypoint found at " + waypointStart + " to " + waypointEnd);
+		if (isCallout) {
+			const waypointLines = waypoint.split("\n");
+			const updatedLines = waypointLines.map((line) => `>${line}`);
+			waypoint = updatedLines.join("\n");
+		}
 		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, waypoint);
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
