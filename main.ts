@@ -1,14 +1,4 @@
-import {
-	App,
-	debounce,
-	normalizePath,
-	Plugin,
-	PluginSettingTab,
-	Setting,
-	TAbstractFile,
-	TFile,
-	TFolder,
-} from "obsidian";
+import { App, debounce, normalizePath, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder } from "obsidian";
 
 enum FolderNoteType {
 	InsideFolder = "INSIDE_FOLDER",
@@ -119,39 +109,15 @@ export default class Waypoint extends Plugin {
 				if (this.isFolderNote(file)) {
 					this.log("Found " + flagType + " flag in folder note!");
 					await this.updatePoint(file, flagType);
-					await this.updateParentPoint(
-						file.parent,
-						this.settings.folderNoteType ===
-							FolderNoteType.OutsideFolder
-					);
+					await this.updateParentPoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
 					return;
 				} else if (file.parent.isRoot()) {
-					this.log(
-						"Found " +
-							flagType.toLowerCase() +
-							" flag in root folder."
-					);
-					this.printError(
-						file,
-						`%% Error: Cannot create a ` +
-							flagType.toLowerCase() +
-							` in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`,
-						flagType
-					);
+					this.log("Found " + flagType.toLowerCase() + " flag in root folder.");
+					this.printError(file, `%% Error: Cannot create a ` + flagType.toLowerCase() + ` in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`, flagType);
 					return;
 				} else {
-					this.log(
-						"Found " +
-							flagType.toLowerCase() +
-							" flag in invalid note."
-					);
-					this.printError(
-						file,
-						`%% Error: Cannot create a ` +
-							flagType.toLowerCase() +
-							` in a note that's not the folder note. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`,
-						flagType
-					);
+					this.log("Found " + flagType.toLowerCase() + " flag in invalid note.");
+					this.printError(file, `%% Error: Cannot create a ` + flagType.toLowerCase() + ` in a note that's not the folder note. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`, flagType);
 					return;
 				}
 			}
@@ -164,11 +130,7 @@ export default class Waypoint extends Plugin {
 			return file.basename == file.parent.name;
 		}
 		if (file.parent) {
-			return (
-				this.app.vault.getAbstractFileByPath(
-					this.getCleanParentPath(file) + file.basename
-				) instanceof TFolder
-			);
+			return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
 		}
 		return false;
 	}
@@ -185,9 +147,7 @@ export default class Waypoint extends Plugin {
 			console.error("Error: Flag type not passed to printError.");
 			return;
 		}
-		this.log(
-			"Creating " + flagType.toLowerCase() + " error in " + file.path
-		);
+		this.log("Creating " + flagType.toLowerCase() + " error in " + file.path);
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointIndex = -1;
@@ -203,11 +163,7 @@ export default class Waypoint extends Plugin {
 			}
 		}
 		if (waypointIndex === -1) {
-			console.error(
-				"Error: No " +
-					flagType.toLowerCase() +
-					" flag found while trying to print error."
-			);
+			console.error("Error: No " + flagType.toLowerCase() + " flag found while trying to print error.");
 			return;
 		}
 		lines.splice(waypointIndex, 1, error);
@@ -246,31 +202,17 @@ export default class Waypoint extends Plugin {
 		this.log("Updating " + flagType.toLowerCase() + " in " + file.path);
 		let fileTree;
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-			fileTree = await this.getFileTreeRepresentation(
-				file.parent,
-				file.parent,
-				0,
-				true
-			);
+			fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
 		} else {
-			const folder = this.app.vault.getAbstractFileByPath(
-				this.getCleanParentPath(file) + file.basename
-			);
+			const folder = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename);
 			if (folder instanceof TFolder) {
-				fileTree = await this.getFileTreeRepresentation(
-					file.parent,
-					folder,
-					0,
-					true
-				);
+				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
 		}
 		const [beginPoint, endPoint] = await this.setPoints(flagType);
 		const point = `${beginPoint}\n${fileTree}\n\n${endPoint}`;
 		if (beginPoint === null || endPoint === null) {
-			console.error(
-				'Error: No point type found from the tag "' + flagType + '"'
-			);
+			console.error('Error: No point type found from the tag "' + flagType + '"');
 			return;
 		}
 		const postFlag = await this.setPostFlag(flagType);
@@ -284,10 +226,7 @@ export default class Waypoint extends Plugin {
 		let waypointEnd = -1;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (
-				waypointStart === -1 &&
-				(trimmed === "%% " + postFlag + " %%" || trimmed === beginPoint)
-			) {
+			if (waypointStart === -1 && (trimmed === "%% " + postFlag + " %%" || trimmed === beginPoint)) {
 				waypointStart = i;
 				continue;
 			}
@@ -297,19 +236,11 @@ export default class Waypoint extends Plugin {
 			}
 		}
 		if (waypointStart === -1) {
-			console.error(
-				"Error: No waypoint found while trying to update " + file.path
-			);
+			console.error("Error: No waypoint found while trying to update " + file.path);
 			return;
 		}
-		this.log(
-			flagType + " found at " + waypointStart + " to " + waypointEnd
-		);
-		lines.splice(
-			waypointStart,
-			waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1,
-			point
-		);
+		this.log(flagType + " found at " + waypointStart + " to " + waypointEnd);
+		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, point);
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
 
@@ -321,12 +252,7 @@ export default class Waypoint extends Plugin {
 	 * @param topLevel Whether this is the top level of the tree or not
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
-	async getFileTreeRepresentation(
-		rootNode: TFolder,
-		node: TAbstractFile,
-		indentLevel: number,
-		topLevel = false
-	): Promise<string> | null {
+	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string> | null {
 		const bullet = "  ".repeat(indentLevel) + "-";
 		if (!(node instanceof TFile) && !(node instanceof TFolder)) {
 			return null;
@@ -344,19 +270,13 @@ export default class Waypoint extends Plugin {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${node.basename}]]`;
 				}
-				return `${bullet} [${node.basename}](${this.getEncodedUri(
-					rootNode,
-					node
-				)})`;
+				return `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
 			}
 			if (this.settings.showNonMarkdownFiles) {
 				if (this.settings.useWikiLinks) {
 					return `${bullet} [[${node.name}]]`;
 				}
-				return `${bullet} [${node.name}](${this.getEncodedUri(
-					rootNode,
-					node
-				)})`;
+				return `${bullet} [${node.name}](${this.getEncodedUri(rootNode, node)})`;
 			}
 			return null;
 		}
@@ -366,32 +286,21 @@ export default class Waypoint extends Plugin {
 			text = `${bullet} **${node.name}**`;
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				folderNote = this.app.vault.getAbstractFileByPath(
-					node.path + "/" + node.name + ".md"
-				);
+				folderNote = this.app.vault.getAbstractFileByPath(node.path + "/" + node.name + ".md");
 			} else if (node.parent) {
-				folderNote = this.app.vault.getAbstractFileByPath(
-					node.parent.path + "/" + node.name + ".md"
-				);
+				folderNote = this.app.vault.getAbstractFileByPath(node.parent.path + "/" + node.name + ".md");
 			}
 			if (folderNote instanceof TFile) {
 				if (this.settings.useWikiLinks) {
 					text = `${bullet} **[[${folderNote.basename}]]**`;
 				}
-				text = `${bullet} **[${
-					folderNote.basename
-				}](${this.getEncodedUri(rootNode, folderNote)})**`;
+				text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
 						return text;
 					}
 					const content = await this.app.vault.cachedRead(folderNote);
-					if (
-						content.includes(Waypoint.BEGIN_WAYPOINT) ||
-						content.includes(
-							"%% " + this.settings.waypointFlag + " %%"
-						)
-					) {
+					if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes("%% " + this.settings.waypointFlag + " %%")) {
 						return text;
 					}
 				}
@@ -410,12 +319,7 @@ export default class Waypoint extends Plugin {
 		});
 		if (!this.settings.showFolderNotes) {
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				children = children.filter(
-					(child) =>
-						(this.settings.showFolderNotes ||
-							child.name !== node.name + ".md") &&
-						!this.ignorePath(child.path)
-				);
+				children = children.filter((child) => (this.settings.showFolderNotes || child.name !== node.name + ".md") && !this.ignorePath(child.path));
 			} else {
 				const folderNames = new Set();
 				for (const element of children) {
@@ -423,34 +327,12 @@ export default class Waypoint extends Plugin {
 						folderNames.add(element.name + ".md");
 					}
 				}
-				children = children.filter(
-					(child) =>
-						(child instanceof TFolder ||
-							!folderNames.has(child.name)) &&
-						!this.ignorePath(child.path)
-				);
+				children = children.filter((child) => (child instanceof TFolder || !folderNames.has(child.name)) && !this.ignorePath(child.path));
 			}
 		}
 		if (children.length > 0) {
-			const nextIndentLevel =
-				topLevel && !this.settings.showEnclosingNote
-					? indentLevel
-					: indentLevel + 1;
-			text +=
-				(text === "" ? "" : "\n") +
-				(
-					await Promise.all(
-						children.map((child) =>
-							this.getFileTreeRepresentation(
-								rootNode,
-								child,
-								nextIndentLevel
-							)
-						)
-					)
-				)
-					.filter(Boolean)
-					.join("\n");
+			const nextIndentLevel = topLevel && !this.settings.showEnclosingNote ? indentLevel : indentLevel + 1;
+			text += (text === "" ? "" : "\n") + (await Promise.all(children.map((child) => this.getFileTreeRepresentation(rootNode, child, nextIndentLevel)))).filter(Boolean).join("\n");
 		}
 		return text;
 	}
@@ -505,14 +387,8 @@ export default class Waypoint extends Plugin {
 	 * @param node The node to start the search from
 	 * @param includeCurrentNode Whether to include the given folder in the search
 	 */
-	updateParentPoint = async (
-		node: TAbstractFile,
-		includeCurrentNode: boolean
-	) => {
-		const [parentFlag, parentPoint] = await this.locateParentPoint(
-			node,
-			includeCurrentNode
-		);
+	updateParentPoint = async (node: TAbstractFile, includeCurrentNode: boolean) => {
+		const [parentFlag, parentPoint] = await this.locateParentPoint(node, includeCurrentNode);
 		if (parentPoint === null) {
 			return;
 		}
@@ -526,39 +402,26 @@ export default class Waypoint extends Plugin {
 	 * @param includeCurrentNode Whether to include the given folder in the search
 	 * @returns The ancestor waypoint, or null if none was found
 	 */
-	async locateParentPoint(
-		node: TAbstractFile,
-		includeCurrentNode: boolean
-	): Promise<[string, TFile]> {
+	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[string, TFile]> {
 		this.log("Locating parent flag and file of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-				folderNote = this.app.vault.getAbstractFileByPath(
-					folder.path + "/" + folder.name + ".md"
-				);
+				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
 			} else {
 				if (folder.parent) {
-					folderNote = this.app.vault.getAbstractFileByPath(
-						this.getCleanParentPath(folder) + folder.name + ".md"
-					);
+					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
 				}
 			}
 			if (folderNote instanceof TFile) {
 				this.log("Found folder note: " + folderNote.path);
 				const text = await this.app.vault.cachedRead(folderNote);
-				if (
-					text.includes(Waypoint.BEGIN_WAYPOINT) ||
-					text.includes("%% " + this.settings.waypointFlag + " %%")
-				) {
+				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes("%% " + this.settings.waypointFlag + " %%")) {
 					this.log("Found parent waypoint!");
 					return ["Waypoint", folderNote];
 				}
-				if (
-					text.includes(Waypoint.BEGIN_LANDMARK) ||
-					text.includes("%% " + this.settings.landmarkFlag + " %%")
-				) {
+				if (text.includes(Waypoint.BEGIN_LANDMARK) || text.includes("%% " + this.settings.landmarkFlag + " %%")) {
 					this.log("Found parent landmark!");
 					return ["Landmark", folderNote];
 				}
@@ -575,9 +438,7 @@ export default class Waypoint extends Plugin {
 	 * @returns The parent folder, or null if none exists
 	 */
 	getParentFolder(path: string): TFolder {
-		const abstractFile = this.app.vault.getAbstractFileByPath(
-			path.split("/").slice(0, -1).join("/")
-		);
+		const abstractFile = this.app.vault.getAbstractFileByPath(path.split("/").slice(0, -1).join("/"));
 		if (abstractFile instanceof TFolder) {
 			return abstractFile;
 		}
@@ -591,11 +452,7 @@ export default class Waypoint extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
 	async saveSettings() {
@@ -620,14 +477,8 @@ class WaypointSettingsTab extends PluginSettingTab {
 			.setDesc("Select the style of folder note used.")
 			.addDropdown((dropdown) =>
 				dropdown
-					.addOption(
-						FolderNoteType.InsideFolder,
-						"Folder Name Inside"
-					)
-					.addOption(
-						FolderNoteType.OutsideFolder,
-						"Folder Name Outside"
-					)
+					.addOption(FolderNoteType.InsideFolder, "Folder Name Inside")
+					.addOption(FolderNoteType.OutsideFolder, "Folder Name Outside")
 					.setValue(this.plugin.settings.folderNoteType)
 					.onChange(async (value) => {
 						this.plugin.settings.folderNoteType = value;
@@ -647,77 +498,52 @@ class WaypointSettingsTab extends PluginSettingTab {
 		// 	);
 		new Setting(containerEl)
 			.setName("Show Folder Notes")
-			.setDesc(
-				"If enabled, folder notes will be listed alongside other notes in the generated waypoints."
-			)
+			.setDesc("If enabled, folder notes will be listed alongside other notes in the generated waypoints.")
 			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.showFolderNotes)
-					.onChange(async (value) => {
-						this.plugin.settings.showFolderNotes = value;
-						await this.plugin.saveSettings();
-					})
+				toggle.setValue(this.plugin.settings.showFolderNotes).onChange(async (value) => {
+					this.plugin.settings.showFolderNotes = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		new Setting(containerEl)
 			.setName("Show Non-Markdown Files")
-			.setDesc(
-				"If enabled, non-Markdown files will be listed alongside other notes in the generated waypoints."
-			)
+			.setDesc("If enabled, non-Markdown files will be listed alongside other notes in the generated waypoints.")
 			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.showNonMarkdownFiles)
-					.onChange(async (value) => {
-						this.plugin.settings.showNonMarkdownFiles = value;
-						await this.plugin.saveSettings();
-					})
+				toggle.setValue(this.plugin.settings.showNonMarkdownFiles).onChange(async (value) => {
+					this.plugin.settings.showNonMarkdownFiles = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		new Setting(containerEl)
 			.setName("Show Enclosing Note")
-			.setDesc(
-				"If enabled, the name of the folder note containing the waypoint will be listed at the top of the generated waypoints."
-			)
+			.setDesc("If enabled, the name of the folder note containing the waypoint will be listed at the top of the generated waypoints.")
 			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.showEnclosingNote)
-					.onChange(async (value) => {
-						this.plugin.settings.showEnclosingNote = value;
-						await this.plugin.saveSettings();
-					})
+				toggle.setValue(this.plugin.settings.showEnclosingNote).onChange(async (value) => {
+					this.plugin.settings.showEnclosingNote = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		new Setting(containerEl)
 			.setName("Stop Scan at Folder Notes")
-			.setDesc(
-				"If enabled, the waypoint generator will stop scanning nested folders when it encounters a folder note. Otherwise, it will only stop if the folder note contains a waypoint."
-			)
+			.setDesc("If enabled, the waypoint generator will stop scanning nested folders when it encounters a folder note. Otherwise, it will only stop if the folder note contains a waypoint.")
 			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.stopScanAtFolderNotes)
-					.onChange(async (value) => {
-						this.plugin.settings.stopScanAtFolderNotes = value;
-						await this.plugin.saveSettings();
-					})
+				toggle.setValue(this.plugin.settings.stopScanAtFolderNotes).onChange(async (value) => {
+					this.plugin.settings.stopScanAtFolderNotes = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		new Setting(containerEl)
 			.setName("Use WikiLinks")
-			.setDesc(
-				"If enabled, links will be generated like [[My Page]] instead of [My Page](../Folder/My%Page.md)."
-			)
+			.setDesc("If enabled, links will be generated like [[My Page]] instead of [My Page](../Folder/My%Page.md).")
 			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.useWikiLinks)
-					.onChange(async (value) => {
-						this.plugin.settings.useWikiLinks = value;
-						await this.plugin.saveSettings();
-					})
+				toggle.setValue(this.plugin.settings.useWikiLinks).onChange(async (value) => {
+					this.plugin.settings.useWikiLinks = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		new Setting(containerEl)
 			.setName("Waypoint Flag")
-			.setDesc(
-				"Text flag that triggers waypoint generation in a folder note." +
-					" To use in a note surround the flag with double-percent signs." +
-					" For example, if you enter 'Waypoint' here, the flag in your note should be:" +
-					" %% Waypoint %%"
-			)
+			.setDesc("Text flag that triggers waypoint generation in a folder note." + " To use in a note surround the flag with double-percent signs." + " For example, if you enter 'Waypoint' here, the flag in your note should be:" + " %% Waypoint %%")
 			.addText((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.waypointFlag)
@@ -726,23 +552,15 @@ class WaypointSettingsTab extends PluginSettingTab {
 						if (value && value.indexOf("%%") < 0) {
 							this.plugin.settings.waypointFlag = value;
 						} else {
-							this.plugin.settings.waypointFlag =
-								DEFAULT_SETTINGS.waypointFlag;
-							console.error(
-								"Error: Double percents will automatically be added, please do not include them in the flag."
-							);
+							this.plugin.settings.waypointFlag = DEFAULT_SETTINGS.waypointFlag;
+							console.error("Error: Double percents will automatically be added, please do not include them in the flag.");
 						}
 						await this.plugin.saveSettings();
 					})
 			);
 		new Setting(containerEl)
 			.setName("Landmark Flag")
-			.setDesc(
-				"Text flag that triggers landmark generation in a folder note." +
-					" To use in a note surround the flag with double-percent signs." +
-					" For example, if you enter 'Landmark' here, the flag in your note should be:" +
-					" %% Landmark %%"
-			)
+			.setDesc("Text flag that triggers landmark generation in a folder note." + " To use in a note surround the flag with double-percent signs." + " For example, if you enter 'Landmark' here, the flag in your note should be:" + " %% Landmark %%")
 			.addText((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.landmarkFlag)
@@ -751,21 +569,15 @@ class WaypointSettingsTab extends PluginSettingTab {
 						if (value && value.indexOf("%%") < 0) {
 							this.plugin.settings.landmarkFlag = value;
 						} else {
-							this.plugin.settings.landmarkFlag =
-								DEFAULT_SETTINGS.landmarkFlag;
-							console.error(
-								"Error: Double percents will automatically be added, please do not include them in the flag."
-							);
+							this.plugin.settings.landmarkFlag = DEFAULT_SETTINGS.landmarkFlag;
+							console.error("Error: Double percents will automatically be added, please do not include them in the flag.");
 						}
 						await this.plugin.saveSettings();
 					})
 			);
 		new Setting(containerEl)
 			.setName("Ignored Files/Folders")
-			.setDesc(
-				"Regex ready list of files or folders to ignore while making" +
-					" indexes. Please only enter one per line."
-			)
+			.setDesc("Regex ready list of files or folders to ignore while making" + " indexes. Please only enter one per line.")
 			.addTextArea((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.ignorePaths.join("\n"))
