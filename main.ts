@@ -107,11 +107,11 @@ export default class Waypoint extends Plugin {
 	detectFlag = async (file: TFile, flagType: WaypointType) => {
 		this.log("Modification on " + file.name);
 		this.log("Scanning for " + flagType + " flags...");
-		const pointFlag = await this.getWaypointFlag(flagType);
+		const waypointFlag = await this.getWaypointFlag(flagType);
 		const text = await this.app.vault.cachedRead(file);
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
-			if (lines[i].trim().includes(pointFlag)) {
+			if (lines[i].trim().includes(waypointFlag)) {
 				if (this.isFolderNote(file)) {
 					this.log("Found " + flagType + " flag in folder note!");
 					await this.updateWaypoint(file, flagType);
