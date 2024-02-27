@@ -1,4 +1,4 @@
-import { App, debounce, normalizePath, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder } from "obsidian";
+import { App, debounce, normalizePath, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TFolder, TextComponent, ToggleComponent } from "obsidian";
 
 enum FolderNoteType {
 	InsideFolder = "INSIDE_FOLDER",
@@ -21,6 +21,8 @@ interface WaypointSettings {
 	showEnclosingNote: boolean;
 	folderNoteType: string;
 	ignorePaths: string[];
+	useSpaces: boolean;
+	numSpaces: number;
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -34,6 +36,8 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	showEnclosingNote: false,
 	folderNoteType: FolderNoteType.InsideFolder,
 	ignorePaths: ["_attachments"],
+	useSpaces: false,
+	numSpaces: 2,
 };
 
 export default class Waypoint extends Plugin {
@@ -212,7 +216,7 @@ export default class Waypoint extends Plugin {
 		const [beginWaypoint, endWaypoint] = await this.getWaypointBounds(flagType);
 		let waypoint = `${beginWaypoint}\n${fileTree}\n\n${endWaypoint}`;
 		if (beginWaypoint === null || endWaypoint === null) {
-			console.error('Error: Waypoint bounds not found, unable to continue.');
+			console.error("Error: Waypoint bounds not found, unable to continue.");
 			return;
 		}
 		const waypointFlag = await this.getWaypointFlag(flagType);
@@ -265,7 +269,8 @@ export default class Waypoint extends Plugin {
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
 	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string> | null {
-		const bullet = "  ".repeat(indentLevel) + "-";
+		const indent = this.settings.useSpaces ? " ".repeat(this.settings.numSpaces) : "	";
+		const bullet = indent.repeat(indentLevel) + "-";
 		if (!(node instanceof TFile) && !(node instanceof TFolder)) {
 			return null;
 		}
@@ -552,6 +557,30 @@ class WaypointSettingsTab extends PluginSettingTab {
 					this.plugin.settings.useWikiLinks = value;
 					await this.plugin.saveSettings();
 				})
+			);
+		new Setting(containerEl)
+			.setName("Use Spaces for Indentation")
+			.setDesc("If enabled, the waypoint list will be indented with spaces rather than with tabs.")
+			.addToggle((toggle: ToggleComponent) =>
+				toggle.setValue(this.plugin.settings.useSpaces).onChange(async (value: boolean) => {
+					this.plugin.settings.useSpaces = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		// TODO: Determine if there is a number component that can be used here instead
+		new Setting(containerEl)
+			.setName("Number of Spaces for Indentation")
+			.setDesc("If spaces are used for indentation, this is the number of spaces that will be used per indentation level.")
+			.addText((text: TextComponent) =>
+				text
+					.setPlaceholder("2")
+					.setValue("" + this.plugin.settings.numSpaces)
+					.onChange(async (value: string) => {
+						const num = parseInt(value, 10);
+						if (isNaN(num)) return;
+						this.plugin.settings.numSpaces = num;
+						await this.plugin.saveSettings();
+					})
 			);
 		new Setting(containerEl)
 			.setName("Waypoint Flag")
