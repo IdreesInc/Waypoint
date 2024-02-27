@@ -5,6 +5,11 @@ enum FolderNoteType {
 	OutsideFolder = "OUTSIDE_FOLDER",
 }
 
+enum FlagType {
+	Waypoint = "waypoint",
+	Landmark = "landmark",
+}
+
 interface WaypointSettings {
 	waypointFlag: string;
 	landmarkFlag: string;
@@ -82,21 +87,17 @@ export default class Waypoint extends Plugin {
 	onunload() {}
 
 	detectFlags = async (file: TFile) => {
-		this.detectFlag(file, "Waypoint");
-		this.detectFlag(file, "Landmark");
+		this.detectFlag(file, FlagType.Waypoint);
+		this.detectFlag(file, FlagType.Landmark);
 	};
 
 	/**
 	 * Scan the given file for the waypoint flag. If found, update the waypoint.
 	 * @param file The file to scan
 	 */
-	detectFlag = async (file: TFile, flagType: string) => {
+	detectFlag = async (file: TFile, flagType: FlagType) => {
 		this.log("Modification on " + file.name);
-		if (flagType === "" || flagType === null) {
-			console.error("Error: No flag type sent to detectFlag.");
-			return;
-		}
-		this.log("Scanning for " + flagType.toLowerCase() + " flags...");
+		this.log("Scanning for " + flagType + " flags...");
 		const postFlag = await this.setPostFlag(flagType);
 		if (postFlag === null) {
 			console.error("Error: Flag type not set, can not continue.");
@@ -112,17 +113,17 @@ export default class Waypoint extends Plugin {
 					await this.updateParentPoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
 					return;
 				} else if (file.parent.isRoot()) {
-					this.log("Found " + flagType.toLowerCase() + " flag in root folder.");
-					this.printError(file, `%% Error: Cannot create a ` + flagType.toLowerCase() + ` in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`, flagType);
+					this.log("Found " + flagType + " flag in root folder.");
+					this.printError(file, `%% Error: Cannot create a ` + flagType + ` in the root folder of your vault. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`, flagType);
 					return;
 				} else {
-					this.log("Found " + flagType.toLowerCase() + " flag in invalid note.");
-					this.printError(file, `%% Error: Cannot create a ` + flagType.toLowerCase() + ` in a note that's not the folder note. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`, flagType);
+					this.log("Found " + flagType + " flag in invalid note.");
+					this.printError(file, `%% Error: Cannot create a ` + flagType + ` in a note that's not the folder note. For more information, check the instructions [here](https://github.com/IdreesInc/Waypoint) %%`, flagType);
 					return;
 				}
 			}
 		}
-		this.log("No " + flagType.toLowerCase() + " flags found.");
+		this.log("No " + flagType + " flags found.");
 	};
 
 	isFolderNote(file: TFile): boolean {
@@ -142,12 +143,8 @@ export default class Waypoint extends Plugin {
 		return node.parent.path + "/";
 	}
 
-	async printError(file: TFile, error: string, flagType: string) {
-		if (flagType === "" || flagType === null) {
-			console.error("Error: Flag type not passed to printError.");
-			return;
-		}
-		this.log("Creating " + flagType.toLowerCase() + " error in " + file.path);
+	async printError(file: TFile, error: string, flagType: FlagType) {
+		this.log("Creating " + flagType + " error in " + file.path);
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointIndex = -1;
@@ -163,7 +160,7 @@ export default class Waypoint extends Plugin {
 			}
 		}
 		if (waypointIndex === -1) {
-			console.error("Error: No " + flagType.toLowerCase() + " flag found while trying to print error.");
+			console.error("Error: No " + flagType + " flag found while trying to print error.");
 			return;
 		}
 		lines.splice(waypointIndex, 1, error);
@@ -171,20 +168,19 @@ export default class Waypoint extends Plugin {
 	}
 
 	async setPoints(flag: string): Promise<[string, string] | [null, null]> {
-		if (flag == "Waypoint") {
+		if (flag === FlagType.Waypoint) {
 			return [Waypoint.BEGIN_WAYPOINT, Waypoint.END_WAYPOINT];
 		}
-		if (flag == "Landmark") {
+		if (flag === FlagType.Landmark) {
 			return [Waypoint.BEGIN_LANDMARK, Waypoint.END_LANDMARK];
 		}
 		return [null, null];
 	}
 
-	async setPostFlag(flag: string): Promise<string> | null {
-		if (flag == "Waypoint") {
+	async setPostFlag(flag: FlagType): Promise<string> | null {
+		if (flag === FlagType.Waypoint) {
 			return this.settings.waypointFlag;
-		}
-		if (flag == "Landmark") {
+		} else if (flag === FlagType.Landmark) {
 			return this.settings.landmarkFlag;
 		}
 		return null;
@@ -194,12 +190,8 @@ export default class Waypoint extends Plugin {
 	 * Given a file with a waypoint flag, generate a file tree representation and update the waypoint text.
 	 * @param file The file to update
 	 */
-	async updatePoint(file: TFile, flagType: string) {
-		if (flagType === "" || flagType === null) {
-			console.error("Error: No flag type passed to updatePoint.");
-			return;
-		}
-		this.log("Updating " + flagType.toLowerCase() + " in " + file.path);
+	async updatePoint(file: TFile, flagType: FlagType) {
+		this.log("Updating " + flagType + " in " + file.path);
 		let fileTree;
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 			fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
@@ -236,7 +228,7 @@ export default class Waypoint extends Plugin {
 			}
 		}
 		if (waypointStart === -1) {
-			console.error("Error: No waypoint found while trying to update " + file.path);
+			console.error("Error: No " + flagType + " found while trying to update " + file.path);
 			return;
 		}
 		this.log(flagType + " found at " + waypointStart + " to " + waypointEnd);
@@ -402,7 +394,7 @@ export default class Waypoint extends Plugin {
 	 * @param includeCurrentNode Whether to include the given folder in the search
 	 * @returns The ancestor waypoint, or null if none was found
 	 */
-	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[string, TFile]> {
+	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[FlagType, TFile]> {
 		this.log("Locating parent flag and file of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
@@ -419,11 +411,11 @@ export default class Waypoint extends Plugin {
 				const text = await this.app.vault.cachedRead(folderNote);
 				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes("%% " + this.settings.waypointFlag + " %%")) {
 					this.log("Found parent waypoint!");
-					return ["Waypoint", folderNote];
+					return [FlagType.Waypoint, folderNote];
 				}
 				if (text.includes(Waypoint.BEGIN_LANDMARK) || text.includes("%% " + this.settings.landmarkFlag + " %%")) {
 					this.log("Found parent landmark!");
-					return ["Landmark", folderNote];
+					return [FlagType.Landmark, folderNote];
 				}
 			}
 			folder = folder.parent;
