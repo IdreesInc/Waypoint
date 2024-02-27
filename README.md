@@ -22,6 +22,9 @@ Waypoint is an Obsidian plugin that automatically generates tables of contents/M
 - **Permanent and portable**
 	- Unlike other plugins, Waypoints are generated and saved as real markdown text within your folder notes. If you decide to switch to a different markdown editor that supports [[links]], all of your tables of contents will still be usable.
 	- Note that the Waypoint plugin currently only works with Obsidian, so moving files around in another editor will cause your waypoints to be out-of-date.
+- **Support Johnny Decimal Folder Structure**
+	- [Johnny Decimal](https://johnnydecimal.com/) folder structure depends mainly on numbering your folders. So your folder name could start with numbers. At the same time, you don't like adding this number to the Folder Note name.
+	- This feature allows to have your Parent folder numbered, while your Folder Note doesn't not.
 
 ## How To Use
 
