@@ -5,7 +5,7 @@ enum FolderNoteType {
 	OutsideFolder = "OUTSIDE_FOLDER",
 }
 
-enum PointType {
+enum IndexType {
 	Waypoint = "waypoint",
 	Landmark = "landmark",
 }
@@ -87,29 +87,25 @@ export default class Waypoint extends Plugin {
 	onunload() {}
 
 	detectFlags = async (file: TFile) => {
-		this.detectFlag(file, PointType.Waypoint);
-		this.detectFlag(file, PointType.Landmark);
+		this.detectFlag(file, IndexType.Waypoint);
+		this.detectFlag(file, IndexType.Landmark);
 	};
 
 	/**
 	 * Scan the given file for the waypoint flag. If found, update the waypoint.
 	 * @param file The file to scan
 	 */
-	detectFlag = async (file: TFile, flagType: PointType) => {
+	detectFlag = async (file: TFile, flagType: IndexType) => {
 		this.log("Modification on " + file.name);
 		this.log("Scanning for " + flagType + " flags...");
-		const pointFlag = await this.getPointFlag(flagType);
-		if (pointFlag === null) {
-			console.error("Error: Flag type not set, can not continue.");
-			return;
-		}
+		const pointFlag = await this.getIndexFlag(flagType);
 		const text = await this.app.vault.cachedRead(file);
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
 			if (lines[i].trim() === pointFlag) {
 				if (this.isFolderNote(file)) {
 					this.log("Found " + flagType + " flag in folder note!");
-					await this.updatePoint(file, flagType);
+					await this.updateIndex(file, flagType);
 					await this.updateParentPoint(file.parent, this.settings.folderNoteType === FolderNoteType.OutsideFolder);
 					return;
 				} else if (file.parent.isRoot()) {
@@ -143,16 +139,12 @@ export default class Waypoint extends Plugin {
 		return node.parent.path + "/";
 	}
 
-	async printError(file: TFile, error: string, flagType: PointType) {
+	async printError(file: TFile, error: string, flagType: IndexType) {
 		this.log("Creating " + flagType + " error in " + file.path);
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointIndex = -1;
-		const pointFlag = await this.getPointFlag(flagType);
-		if (pointFlag === null) {
-			console.error("Error: Flag type not set, can not continue.");
-			return;
-		}
+		const pointFlag = await this.getIndexFlag(flagType);
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
 			if (trimmed === pointFlag) {
@@ -168,27 +160,28 @@ export default class Waypoint extends Plugin {
 	}
 
 	/**
-	 * Get the indices of the begin and end points for the given point type.
+	 * Get the string indices of the begin and end points for the given index type.
 	 */
-	async getPointIndices(flag: string): Promise<[string, string] | [null, null]> {
-		if (flag === PointType.Waypoint) {
+	async getIndexBounds(flag: string): Promise<[string, string] | [null, null]> {
+		if (flag === IndexType.Waypoint) {
 			return [Waypoint.BEGIN_WAYPOINT, Waypoint.END_WAYPOINT];
 		}
-		if (flag === PointType.Landmark) {
+		if (flag === IndexType.Landmark) {
 			return [Waypoint.BEGIN_LANDMARK, Waypoint.END_LANDMARK];
 		}
 		return [null, null];
 	}
 
 	/**
-	 * Get the point indicator for the given point type.
+	 * Get the index indicator for the given index type.
 	 */
-	async getPointFlag(flag: PointType): Promise<string> | null {
-		if (flag === PointType.Waypoint) {
+	async getIndexFlag(index: IndexType): Promise<string> | null {
+		if (index === IndexType.Waypoint) {
 			return this.settings.waypointFlag;
-		} else if (flag === PointType.Landmark) {
+		} else if (index === IndexType.Landmark) {
 			return this.settings.landmarkFlag;
 		}
+		console.error("Error: Invalid index type: " + index);
 		return null;
 	}
 
@@ -196,7 +189,7 @@ export default class Waypoint extends Plugin {
 	 * Given a file with a waypoint flag, generate a file tree representation and update the waypoint text.
 	 * @param file The file to update
 	 */
-	async updatePoint(file: TFile, flagType: PointType) {
+	async updateIndex(file: TFile, flagType: IndexType) {
 		this.log("Updating " + flagType + " in " + file.path);
 		let fileTree;
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
@@ -207,28 +200,24 @@ export default class Waypoint extends Plugin {
 				fileTree = await this.getFileTreeRepresentation(file.parent, folder, 0, true);
 			}
 		}
-		const [beginPoint, endPoint] = await this.getPointIndices(flagType);
-		const point = `${beginPoint}\n${fileTree}\n\n${endPoint}`;
-		if (beginPoint === null || endPoint === null) {
-			console.error('Error: No point type found from the tag "' + flagType + '"');
+		const [beginIndex, endIndex] = await this.getIndexBounds(flagType);
+		const index = `${beginIndex}\n${fileTree}\n\n${endIndex}`;
+		if (beginIndex === null || endIndex === null) {
+			console.error('Error: Index bounds not found, unable to continue.');
 			return;
 		}
-		const pointFlag = await this.getPointFlag(flagType);
-		if (pointFlag === null) {
-			console.error("Error: Flag type not set, can not continue.");
-			return;
-		}
+		const indexFlag = await this.getIndexFlag(flagType);
 		const text = await this.app.vault.read(file);
 		const lines: string[] = text.split("\n");
 		let waypointStart = -1;
 		let waypointEnd = -1;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (waypointStart === -1 && (trimmed === pointFlag || trimmed === beginPoint)) {
+			if (waypointStart === -1 && (trimmed === indexFlag || trimmed === beginIndex)) {
 				waypointStart = i;
 				continue;
 			}
-			if (waypointStart !== -1 && trimmed === endPoint) {
+			if (waypointStart !== -1 && trimmed === endIndex) {
 				waypointEnd = i;
 				break;
 			}
@@ -238,7 +227,7 @@ export default class Waypoint extends Plugin {
 			return;
 		}
 		this.log(flagType + " found at " + waypointStart + " to " + waypointEnd);
-		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, point);
+		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, index);
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
 
@@ -390,7 +379,7 @@ export default class Waypoint extends Plugin {
 		if (parentPoint === null) {
 			return;
 		}
-		this.updatePoint(parentPoint, parentFlag);
+		this.updateIndex(parentPoint, parentFlag);
 		this.updateParentPoint(parentPoint.parent, false);
 	};
 
@@ -400,7 +389,7 @@ export default class Waypoint extends Plugin {
 	 * @param includeCurrentNode Whether to include the given folder in the search
 	 * @returns The ancestor waypoint, or null if none was found
 	 */
-	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[PointType, TFile]> {
+	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[IndexType, TFile]> {
 		this.log("Locating parent flag and file of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
 		while (folder) {
@@ -417,11 +406,11 @@ export default class Waypoint extends Plugin {
 				const text = await this.app.vault.cachedRead(folderNote);
 				if (text.includes(Waypoint.BEGIN_WAYPOINT) || text.includes(this.settings.waypointFlag)) {
 					this.log("Found parent waypoint!");
-					return [PointType.Waypoint, folderNote];
+					return [IndexType.Waypoint, folderNote];
 				}
 				if (text.includes(Waypoint.BEGIN_LANDMARK) || text.includes(this.settings.landmarkFlag)) {
 					this.log("Found parent landmark!");
-					return [PointType.Landmark, folderNote];
+					return [IndexType.Landmark, folderNote];
 				}
 			}
 			folder = folder.parent;
@@ -575,7 +564,7 @@ class WaypointSettingsTab extends PluginSettingTab {
 			);
 		new Setting(containerEl)
 			.setName("Ignored Files/Folders")
-			.setDesc("Regex ready list of files or folders to ignore while making" + " indexes. Please only enter one per line.")
+			.setDesc("Regex list of files or folders to ignore while making indices. Enter only one regex per line.")
 			.addTextArea((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.ignorePaths.join("\n"))
@@ -606,7 +595,7 @@ class WaypointSettingsTab extends PluginSettingTab {
 			text: " or get in touch with the author ",
 		});
 		descriptionElement.createEl("a", {
-			attr: { href: "https://twitter.com/IdreesInc" },
+			attr: { href: "https://github.com/IdreesInc" },
 			text: "@IdreesInc",
 		});
 		postscriptElement.appendChild(descriptionElement);
