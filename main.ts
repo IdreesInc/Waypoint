@@ -47,6 +47,15 @@ export default class Waypoint extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.addCommand({
+			id: "go_to_parent_waypoint",
+			name: "Go to parent Waypoint",
+			callback: async () => {
+				const curFile = this.app.workspace.getActiveFile();
+				const [parentFlag, parentPoint] = await this.locateParentPoint(curFile, false);
+				this.app.workspace.activeLeaf.openFile(parentPoint);
+			},
+		});
 		this.app.workspace.onLayoutReady(async () => {
 			// Register events after layout is built to avoid initial wave of 'create' events
 			this.registerEvent(
@@ -102,7 +111,7 @@ export default class Waypoint extends Plugin {
 		const text = await this.app.vault.cachedRead(file);
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
-			if (lines[i].trim() === pointFlag) {
+			if (lines[i].trim().includes(pointFlag)) {
 				if (this.isFolderNote(file)) {
 					this.log("Found " + flagType + " flag in folder note!");
 					await this.updateIndex(file, flagType);
@@ -147,7 +156,7 @@ export default class Waypoint extends Plugin {
 		const pointFlag = await this.getIndexFlag(flagType);
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (trimmed === pointFlag) {
+			if (trimmed.includes(pointFlag)) {
 				waypointIndex = i;
 			}
 		}
@@ -201,7 +210,7 @@ export default class Waypoint extends Plugin {
 			}
 		}
 		const [beginIndex, endIndex] = await this.getIndexBounds(flagType);
-		const index = `${beginIndex}\n${fileTree}\n\n${endIndex}`;
+		let index = `${beginIndex}\n${fileTree}\n\n${endIndex}`;
 		if (beginIndex === null || endIndex === null) {
 			console.error('Error: Index bounds not found, unable to continue.');
 			return;
@@ -211,9 +220,14 @@ export default class Waypoint extends Plugin {
 		const lines: string[] = text.split("\n");
 		let waypointStart = -1;
 		let waypointEnd = -1;
+		let isCallout;
+		// Whether this is the first time we are creating the index
+		let initialIndex = false;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
-			if (waypointStart === -1 && (trimmed === indexFlag || trimmed === beginIndex)) {
+			if (waypointStart === -1 && (trimmed.includes(indexFlag) || trimmed.includes(beginIndex))) {
+				isCallout = trimmed.startsWith(">");
+				initialIndex = trimmed.includes(indexFlag);
 				waypointStart = i;
 				continue;
 			}
@@ -227,6 +241,17 @@ export default class Waypoint extends Plugin {
 			return;
 		}
 		this.log(flagType + " found at " + waypointStart + " to " + waypointEnd);
+		if (isCallout) {
+			if (initialIndex) {
+				// Add callout block prefix to the waypoint
+				const prefix = flagType === IndexType.Landmark ? "[!landmark]\n" : "[!waypoint]\n";
+				index = prefix + index;
+			}
+			// Prefix each line with ">" to make it a callout
+			const indexLines = index.split("\n");
+			const updatedLines = indexLines.map((line) => `>${line}`);
+			index = updatedLines.join("\n");
+		}
 		lines.splice(waypointStart, waypointEnd !== -1 ? waypointEnd - waypointStart + 1 : 1, index);
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
