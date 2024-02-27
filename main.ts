@@ -80,7 +80,7 @@ export default class Waypoint extends Plugin {
 		const text = await this.app.vault.cachedRead(file);
 		const lines: string[] = text.split("\n");
 		for (let i = 0; i < lines.length; i++) {
-			if (lines[i].trim() === this.settings.waypointFlag) {
+			if (lines[i].trim().includes(this.settings.waypointFlag)) {
 				if (this.isFolderNote(file)) {
 					this.log("Found waypoint flag in folder note!");
 					await this.updateWaypoint(file);
@@ -160,10 +160,13 @@ export default class Waypoint extends Plugin {
 		let waypointStart = -1;
 		let waypointEnd = -1;
 		let isCallout;
+		// Whether this is the first time we are creating the waypoint
+		let initialWaypoint = false;
 		for (let i = 0; i < lines.length; i++) {
 			const trimmed = lines[i].trim();
 			if (waypointStart === -1 && (trimmed.includes(this.settings.waypointFlag) || trimmed.includes(Waypoint.BEGIN_WAYPOINT))) {
 				isCallout = trimmed.startsWith(">");
+				initialWaypoint = trimmed.includes(this.settings.waypointFlag);
 				waypointStart = i;
 			} else if (waypointStart !== -1 && trimmed === (Waypoint.END_WAYPOINT)) {
 				waypointEnd = i;
@@ -176,6 +179,10 @@ export default class Waypoint extends Plugin {
 		}
 		this.log("Waypoint found at " + waypointStart + " to " + waypointEnd);
 		if (isCallout) {
+			if (initialWaypoint) {
+				// Add callout block prefix to the waypoint
+				waypoint = "[!waypoint]\n" + waypoint;
+			}
 			const waypointLines = waypoint.split("\n");
 			const updatedLines = waypointLines.map((line) => `>${line}`);
 			waypoint = updatedLines.join("\n");
