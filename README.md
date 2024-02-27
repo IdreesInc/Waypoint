@@ -61,4 +61,4 @@ Waypoint was created to give users fine-grained control over what folders are si
 
 ## Get In Touch
 
-Got any questions, comments, or concerns? Feel free to raise an issue through GitHub or get in touch with me [@IdreesInc](https://twitter.com/IdreesInc). If you want to see some of my other projects, check out my website [idreesinc.com](https://idreesinc.com/).
+Got any questions, comments, or concerns? Feel free to raise an issue through GitHub or get in touch with me [@IdreesInc](https://github.com/IdreesInc). If you want to see some of my other projects, check out my website [idreesinc.com](https://idreesinc.com/).
