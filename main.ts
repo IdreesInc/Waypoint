@@ -36,6 +36,15 @@ export default class Waypoint extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.addCommand({
+			id: "go_to_parent_waypoint",
+			name: "Go to parent Waypoint",
+			callback: async () => {
+				const curFile = this.app.workspace.getActiveFile();
+				const waypoint = await this.locateParentWaypoint(curFile, false);
+				this.app.workspace.activeLeaf.openFile(waypoint);
+			},
+		});
 		this.app.workspace.onLayoutReady(async () => {
 			// Register events after layout is built to avoid initial wave of 'create' events
 			this.registerEvent(this.app.vault.on("create", (file) => {
