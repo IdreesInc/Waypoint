@@ -310,8 +310,9 @@ export default class Waypoint extends Plugin {
 			if (folderNote instanceof TFile) {
 				if (this.settings.useWikiLinks) {
 					text = `${bullet} **[[${folderNote.basename}]]**`;
+				} else {
+					text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
 				}
-				text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
 						return text;
