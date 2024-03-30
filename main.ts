@@ -287,7 +287,7 @@ export default class Waypoint extends Plugin {
 			// If non-null get the file's title property
 			let title : string | null;
 			if (this.settings.useFrontMatterTitle) {
-				const fm = this.app.metadataCache.getFileCache(node).frontmatter;
+				const fm = this.app.metadataCache?.getFileCache(node)?.frontmatter;
 				// check if the file has a "title" property and if so return it
 				if (fm && fm.hasOwnProperty("title")){
 					title =  fm.title;
@@ -581,8 +581,8 @@ class WaypointSettingsTab extends PluginSettingTab {
 				})
 			);
 		new Setting(containerEl)
-			.setName("Use front matter title")
-			.setDesc("If enabled, links will use the \"title\" frontmatter key for the displayed text (if the key exists).")
+			.setName("Use Title Property")
+			.setDesc("If enabled, links will use the \"title\" frontmatter property for the displayed text (if it exists).")
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.useFrontMatterTitle).onChange(async (value) => {
 					this.plugin.settings.useFrontMatterTitle = value;
