@@ -392,6 +392,10 @@ export default class Waypoint extends Plugin {
 	ignorePath(path: string): boolean {
 		let found = false;
 		this.settings.ignorePaths.forEach((comparePath) => {
+			if (comparePath === "") {
+				// Ignore empty paths (occurs when the setting value is empty)
+				return;
+			}
 			const regex = new RegExp(comparePath);
 			if (path.match(regex)) {
 				this.log(`Ignoring path: ${path}`);
