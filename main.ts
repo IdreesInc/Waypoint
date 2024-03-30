@@ -18,6 +18,7 @@ interface WaypointSettings {
 	showNonMarkdownFiles: boolean;
 	debugLogging: boolean;
 	useWikiLinks: boolean;
+	useFrontMatterTitle: boolean;
 	showEnclosingNote: boolean;
 	folderNoteType: string;
 	ignorePaths: string[];
@@ -33,6 +34,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	showNonMarkdownFiles: false,
 	debugLogging: false,
 	useWikiLinks: true,
+	useFrontMatterTitle: false,
 	showEnclosingNote: false,
 	folderNoteType: FolderNoteType.InsideFolder,
 	ignorePaths: ["_attachments"],
@@ -282,12 +284,31 @@ export default class Waypoint extends Plugin {
 			if (this.settings.debugLogging) {
 				console.log(node);
 			}
+			// If non-null get the file's title property
+			let title : string | null;
+			if (this.settings.useFrontMatterTitle) {
+				const fm = this.app.metadataCache.getFileCache(node).frontmatter;
+				// check if the file has a "title" property and if so return it
+				if (fm && fm.hasOwnProperty("title")){
+					title =  fm.title;
+				}
+			} else {
+				title = null;
+			}
 			// Print the file name
 			if (node.extension == "md") {
 				if (this.settings.useWikiLinks) {
+					if (title) {
+						return `${bullet} [[${node.basename}|${title}]]`;
+					} else {
 					return `${bullet} [[${node.basename}]]`;
+					}
 				}
-				return `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
+				if (title) {
+					return `${bullet} [${title}](${this.getEncodedUri(rootNode, node)})`;
+				} else {
+					return `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
+				}
 			}
 			if (this.settings.showNonMarkdownFiles) {
 				if (this.settings.useWikiLinks) {
@@ -556,6 +577,15 @@ class WaypointSettingsTab extends PluginSettingTab {
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.useWikiLinks).onChange(async (value) => {
 					this.plugin.settings.useWikiLinks = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Use front matter title")
+			.setDesc("If enabled, links will use the \"title\" frontmatter key for the displayed text (if the key exists).")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.useFrontMatterTitle).onChange(async (value) => {
+					this.plugin.settings.useFrontMatterTitle = value;
 					await this.plugin.saveSettings();
 				})
 			);
