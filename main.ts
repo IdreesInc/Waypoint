@@ -18,6 +18,7 @@ interface WaypointSettings {
 	showNonMarkdownFiles: boolean;
 	debugLogging: boolean;
 	useWikiLinks: boolean;
+	useObsidianLinksInLandmarkSubtree: boolean;
 	useFrontMatterTitle: boolean;
 	showEnclosingNote: boolean;
 	folderNoteType: string;
@@ -34,6 +35,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	showNonMarkdownFiles: false,
 	debugLogging: false,
 	useWikiLinks: true,
+	useObsidianLinksInLandmarkSubtree: false,
 	useFrontMatterTitle: false,
 	showEnclosingNote: false,
 	folderNoteType: FolderNoteType.InsideFolder,
@@ -268,9 +270,10 @@ export default class Waypoint extends Plugin {
 	 * @param node The current node in our recursive descent
 	 * @param indentLevel How many levels of indentation to draw
 	 * @param topLevel Whether this is the top level of the tree or not
+	 * @param landmarkObsidianLink Whether to use Obsidian links for files in Landmark "subtrees"
 	 * @returns The string representation of the tree, or null if the node is not a file or folder
 	 */
-	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false): Promise<string> | null {
+	async getFileTreeRepresentation(rootNode: TFolder, node: TAbstractFile, indentLevel: number, topLevel = false, landmarkObsidianLink = false): Promise<string> | null {
 		const indent = this.settings.useSpaces ? " ".repeat(this.settings.numSpaces) : "	";
 		const bullet = indent.repeat(indentLevel) + "-";
 		if (!(node instanceof TFile) && !(node instanceof TFolder)) {
@@ -297,6 +300,13 @@ export default class Waypoint extends Plugin {
 			}
 			// Print the file name
 			if (node.extension == "md") {
+				if(landmarkObsidianLink) { // can only be set true if setting enabled
+					if (title) {
+						return `${bullet} [${title}](obsidian://open?vault=${this.app.vault.getName()}&file=${this.getEncodedUri(rootNode, node)})`;
+					} else {
+						return `${bullet} [${node.basename}](obsidian://open?vault=${this.app.vault.getName()}&file=${this.getEncodedUri(rootNode, node)})`;
+					}
+				}
 				if (this.settings.useWikiLinks) {
 					if (title) {
 						return `${bullet} [[${node.basename}|${title}]]`;
@@ -329,7 +339,10 @@ export default class Waypoint extends Plugin {
 				folderNote = this.app.vault.getAbstractFileByPath(node.parent.path + "/" + node.name + ".md");
 			}
 			if (folderNote instanceof TFile) {
-				if (this.settings.useWikiLinks) {
+				if (landmarkObsidianLink) {
+					text = `${bullet} **[${folderNote.basename}](obsidian://open?vault=${this.app.vault.getName()}&file=${this.getEncodedUri(rootNode, folderNote)})**`;
+				}
+				else if (this.settings.useWikiLinks) {
 					text = `${bullet} **[[${folderNote.basename}]]**`;
 				} else {
 					text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
@@ -341,6 +354,9 @@ export default class Waypoint extends Plugin {
 					const content = await this.app.vault.cachedRead(folderNote);
 					if (content.includes(Waypoint.BEGIN_WAYPOINT) || content.includes(this.settings.waypointFlag)) {
 						return text;
+					}
+					if (this.settings.useObsidianLinksInLandmarkSubtree && (content.includes(Waypoint.BEGIN_LANDMARK) || content.includes(this.settings.landmarkFlag))) {
+						landmarkObsidianLink = true;
 					}
 				}
 			}
@@ -371,7 +387,7 @@ export default class Waypoint extends Plugin {
 		}
 		if (children.length > 0) {
 			const nextIndentLevel = topLevel && !this.settings.showEnclosingNote ? indentLevel : indentLevel + 1;
-			text += (text === "" ? "" : "\n") + (await Promise.all(children.map((child) => this.getFileTreeRepresentation(rootNode, child, nextIndentLevel)))).filter(Boolean).join("\n");
+			text += (text === "" ? "" : "\n") + (await Promise.all(children.map((child) => this.getFileTreeRepresentation(rootNode, child, nextIndentLevel, false, landmarkObsidianLink)))).filter(Boolean).join("\n");
 		}
 		return text;
 	}
@@ -581,6 +597,18 @@ class WaypointSettingsTab extends PluginSettingTab {
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.useWikiLinks).onChange(async (value) => {
 					this.plugin.settings.useWikiLinks = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Generate Obsidian Links for Landmark Subdirectories")
+			.setDesc(`If enabled, links will be generated like [My Page](obsidian://open?vault=${this.app.vault.getName()}&file=./Folder/My%20Page.md) for files in Landmark Subdirectories. 
+				The file with the Landmark itself will respect the 'Use WikiLinks' Setting. 
+				Access the files the same, but the graph is less cluttered.
+			`)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.useObsidianLinksInLandmarkSubtree).onChange(async (value) => {
+					this.plugin.settings.useObsidianLinksInLandmarkSubtree = value;
 					await this.plugin.saveSettings();
 				})
 			);
