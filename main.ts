@@ -341,8 +341,7 @@ export default class Waypoint extends Plugin {
 			if (folderNote instanceof TFile) {
 				if (landmarkObsidianLink) {
 					text = `${bullet} **[${folderNote.basename}](obsidian://open?vault=${this.app.vault.getName()}&file=${this.getEncodedUri(rootNode, folderNote)})**`;
-				}
-				else if (this.settings.useWikiLinks) {
+				} else if (this.settings.useWikiLinks) {
 					text = `${bullet} **[[${folderNote.basename}]]**`;
 				} else {
 					text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
