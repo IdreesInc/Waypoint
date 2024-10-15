@@ -1,6 +1,6 @@
 # Waypoint - Automatic Table of Contents Generator for [Obsidian.md](https://obsidian.md/)
 
-Do you use folders to categorize your notes and wish that Obsidian would show certain folders in the graph view? Do you hate having to keep track of tags and links every time a file is created? Do you want to decide what folders should be categories without creating index files for every folder?
+Do you use folders to categorize your notes and wish that Obsidian would show certain folders in the graph view? Do you hate having to keep track of tags and links every time a file is created? Do you want to decide what folders should be categorized without creating index files for every folder?
 
 Waypoint is an Obsidian plugin that automatically generates tables of contents/MOCs within your folder notes. Once a waypoint is generated, it'll automatically link to every note within the folder and its subfolders. The Waypoint plugin will detect when you create/rename/move/delete a note and automatically stay up-to-date. **No more dealing with loads of tags or manually updating your own content maps!**
 
@@ -29,7 +29,7 @@ Waypoint is an Obsidian plugin that automatically generates tables of contents/M
 
 ## How To Use
 
-- First, install the plugin. Waypoint is currently being reviewed for inclusion in the Community Plugins list. Once it is accepted, you'll be able to install it directly within Obsidian.
+- First, install the plugin. You can find it directly in Obsidian via Community Plugins.
 - Generate a waypoint by editing a folder note (a note with the same name as its parent folder) and typing in the waypoint trigger text. By default, this is `%% Waypoint %%`. Make sure to include the double-percents on both sides!
 	- This trigger flag can be changed in settings, but it will always require the double-percents in notes as that is how Obsidian knows it's a comment and not real text.
 - And that's it! Waypoints will be automatically updated whenever the files or folders within that folder are changed. Be sure not to remove the `%% Begin Waypoint %%` or `%% End Waypoint %%` flags as this is what the plugin uses to locate the table of contents. Any changes made to the text between these flags will get removed once the waypoint is updated.
@@ -51,7 +51,7 @@ If your workflow would be improved by the removal of one of these limitations, f
 
 ### Why should I use this instead of just using tags?
 
-Tags are an easy way to sort and organize different notes by a type or category, but they have a few drawbacks that limit their usability. My personal reasons for not using tags extensively are that they need to be added or removed from a note manually and they cannot be nested in a meaningful way. Folders on the other hand are a clear and easy way to lump a bunch of notes into a specific category. And the ability to nest folders makes it a lot easier to document the relationship between individual categories. Using this plugin, you can easily link files in the same folder together without any manual bookkeeping (beyond creating the initial waypoint). I still find myself using tags for defining different types of notes since those are not likely to change even if I move them around.
+Tags are an easy way to sort and organize different notes by type or category, but they have a few drawbacks that limit their usability. My personal reasons for not using tags extensively are that they need to be added or removed from a note manually and they cannot be nested in a meaningful way. Folders on the other hand are a clear and easy way to lump a bunch of notes into a specific category. And the ability to nest folders makes it a lot easier to document the relationship between individual categories. Using this plugin, you can easily link files in the same folder together without any manual bookkeeping (beyond creating the initial waypoint). I still find myself using tags for defining different types of notes since those are not likely to change even if I move them around.
 
 ### How is this different from indexing plugins like [Zoottelkeeper](https://github.com/akosbalasko/zoottelkeeper-obsidian-plugin)?
 
