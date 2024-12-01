@@ -448,6 +448,9 @@ export default class Waypoint extends Plugin {
 	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[WaypointType, TFile]> {
 		this.log("Locating parent flag and file of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
+		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+			folder = folder?.parent;
+		}
 		while (folder) {
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
