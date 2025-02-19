@@ -237,7 +237,7 @@ export default class Waypoint extends Plugin {
 				waypointStart = i;
 				continue;
 			}
-			if (waypointStart !== -1 && trimmed === endWaypoint) {
+			if (waypointStart !== -1 && trimmed.includes(endWaypoint)) {
 				waypointEnd = i;
 				break;
 			}
