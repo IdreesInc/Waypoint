@@ -16,6 +16,7 @@ interface WaypointSettings {
 	stopScanAtFolderNotes: boolean;
 	showFolderNotes: boolean;
 	showNonMarkdownFiles: boolean;
+	foldersOnTop: boolean;
 	debugLogging: boolean;
 	useWikiLinks: boolean;
 	useFrontMatterTitle: boolean;
@@ -32,6 +33,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	stopScanAtFolderNotes: false,
 	showFolderNotes: false,
 	showNonMarkdownFiles: false,
+	foldersOnTop: true,
 	debugLogging: false,
 	useWikiLinks: true,
 	useFrontMatterTitle: false,
@@ -371,6 +373,18 @@ export default class Waypoint extends Plugin {
 		}
 		if (children.length > 0) {
 			const nextIndentLevel = topLevel && !this.settings.showEnclosingNote ? indentLevel : indentLevel + 1;
+
+			/* If enabled 'folders sorted to the top',
+			 * sort according to the node type
+			 */
+			if (this.settings.foldersOnTop) {
+				children.sort((x, y) => {
+					if (x instanceof TFolder
+						&& !(y instanceof TFolder)) return -1;
+					else return 1;
+				});
+			}
+
 			text += (text === "" ? "" : "\n") + (await Promise.all(children.map((child) => this.getFileTreeRepresentation(rootNode, child, nextIndentLevel)))).filter(Boolean).join("\n");
 		}
 		return text;
@@ -563,6 +577,15 @@ class WaypointSettingsTab extends PluginSettingTab {
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.showEnclosingNote).onChange(async (value) => {
 					this.plugin.settings.showEnclosingNote = value;
+					await this.plugin.saveSettings();
+				})
+			);
+		new Setting(containerEl)
+			.setName("Folders sorted to the top")
+			.setDesc("If enabled, folders will be listed at the top in the generated waypoints.")
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.foldersOnTop).onChange(async (value) => {
+					this.plugin.settings.foldersOnTop = value;
 					await this.plugin.saveSettings();
 				})
 			);
