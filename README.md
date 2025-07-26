@@ -6,6 +6,10 @@ Waypoint is an Obsidian plugin that automatically generates tables of contents/M
 
 ![Preview Image](images/Preview-03-30-22.gif)
 
+<a href="https://discord.gg/6yxE9prcNc" target="_blank">
+	<img alt="Discord" src="https://img.shields.io/discord/1398471368403583120?logo=discord&logoColor=fff&label=discord&color=5865F2">
+</a>
+
 ## Features
 
 - **Automatically generated tables of contents!**
