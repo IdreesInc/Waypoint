@@ -6,9 +6,7 @@ Waypoint is an Obsidian plugin that automatically generates tables of contents/M
 
 ![Preview Image](images/Preview-03-30-22.gif)
 
-<a href="https://discord.gg/6yxE9prcNc" target="_blank">
-	<img alt="Discord" src="https://img.shields.io/discord/1398471368403583120?logo=discord&logoColor=fff&label=discord&color=5865F2">
-</a>
+### [For updates and support, visit our Discord!](https://discord.gg/6yxE9prcNc)
 
 ## Features
 
@@ -66,3 +64,4 @@ Waypoint was created to give users fine-grained control over what folders are si
 ## Get In Touch
 
 Got any questions, comments, or concerns? Feel free to raise an issue through GitHub or get in touch with me [@IdreesInc](https://github.com/IdreesInc). If you want to see some of my other projects, check out my website [idreesinc.com](https://idreesinc.com/).
+
