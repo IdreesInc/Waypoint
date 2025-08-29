@@ -21,9 +21,12 @@ interface WaypointSettings {
 	useFrontMatterTitle: boolean;
 	showEnclosingNote: boolean;
 	folderNoteType: string;
-	ignorePaths: string[];
-	useSpaces: boolean;
-	numSpaces: number;
+        ignorePaths: string[];
+        useSpaces: boolean;
+        numSpaces: number;
+        useObsidianSort: boolean;
+        sortOrder: string;
+        sortDescending: boolean;
 }
 
 const DEFAULT_SETTINGS: WaypointSettings = {
@@ -37,9 +40,12 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	useFrontMatterTitle: false,
 	showEnclosingNote: false,
 	folderNoteType: FolderNoteType.InsideFolder,
-	ignorePaths: ["_attachments"],
-	useSpaces: false,
-	numSpaces: 2,
+        ignorePaths: ["_attachments"],
+        useSpaces: false,
+        numSpaces: 2,
+        useObsidianSort: true,
+        sortOrder: "name",
+        sortDescending: false,
 };
 
 export default class Waypoint extends Plugin {
@@ -348,14 +354,9 @@ export default class Waypoint extends Plugin {
 		if (!node.children || node.children.length == 0) {
 			return `${bullet} **${node.name}**`;
 		}
-		// Print the files and nested folders within the folder
-		let children = node.children;
-		children = children.sort((a, b) => {
-			return a.name.localeCompare(b.name, undefined, {
-				numeric: true,
-				sensitivity: "base",
-			});
-		});
+               // Print the files and nested folders within the folder
+               let children = node.children;
+               children = this.sortChildren(children);
 		if (!this.settings.showFolderNotes) {
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 				children = children.filter((child) => (this.settings.showFolderNotes || child.name !== node.name + ".md") && !this.ignorePath(child.path));
@@ -382,17 +383,50 @@ export default class Waypoint extends Plugin {
 	 * @param node The node to which the path will be generated
 	 * @returns The encoded path
 	 */
-	getEncodedUri(rootNode: TFolder, node: TAbstractFile) {
-		if (rootNode.isRoot()) {
-			return `./${encodeURI(node.path)}`;
-		}
-		return `./${encodeURI(node.path.substring(rootNode.path.length + 1))}`;
-	}
+        getEncodedUri(rootNode: TFolder, node: TAbstractFile) {
+                if (rootNode.isRoot()) {
+                        return `./${encodeURI(node.path)}`;
+                }
+                return `./${encodeURI(node.path.substring(rootNode.path.length + 1))}`;
+        }
 
-	ignorePath(path: string): boolean {
-		let found = false;
-		this.settings.ignorePaths.forEach((comparePath) => {
-			if (comparePath === "") {
+        sortChildren(children: TAbstractFile[]): TAbstractFile[] {
+                const sortOrder = this.settings.useObsidianSort
+                        ? (((this.app.vault as any).getConfig?.("fileSortOrder") as string) || "name")
+                        : this.settings.sortOrder;
+                const reverse = this.settings.useObsidianSort
+                        ? !!(this.app.vault as any).getConfig?.("fileSortOrderReverse")
+                        : this.settings.sortDescending;
+                const direction = reverse ? -1 : 1;
+                return children.sort((a, b) => {
+                        let diff = 0;
+                        if (sortOrder === "modified") {
+                                const aTime = (a as TFile).stat?.mtime;
+                                const bTime = (b as TFile).stat?.mtime;
+                                if (aTime != null && bTime != null) {
+                                        diff = aTime - bTime;
+                                }
+                        } else if (sortOrder === "created") {
+                                const aTime = (a as TFile).stat?.ctime;
+                                const bTime = (b as TFile).stat?.ctime;
+                                if (aTime != null && bTime != null) {
+                                        diff = aTime - bTime;
+                                }
+                        }
+                        if (diff === 0) {
+                                diff = a.name.localeCompare(b.name, undefined, {
+                                        numeric: true,
+                                        sensitivity: "base",
+                                });
+                        }
+                        return diff * direction;
+                });
+        }
+
+        ignorePath(path: string): boolean {
+                let found = false;
+                this.settings.ignorePaths.forEach((comparePath) => {
+                        if (comparePath === "") {
 				// Ignore empty paths (occurs when the setting value is empty)
 				return;
 			}
@@ -548,24 +582,63 @@ class WaypointSettingsTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			);
-		new Setting(containerEl)
-			.setName("Show Non-Markdown Files")
-			.setDesc("If enabled, non-Markdown files will be listed alongside other notes in the generated waypoints.")
-			.addToggle((toggle) =>
-				toggle.setValue(this.plugin.settings.showNonMarkdownFiles).onChange(async (value) => {
-					this.plugin.settings.showNonMarkdownFiles = value;
-					await this.plugin.saveSettings();
-				})
-			);
-		new Setting(containerEl)
-			.setName("Show Enclosing Note")
-			.setDesc("If enabled, the name of the folder note containing the waypoint will be listed at the top of the generated waypoints.")
-			.addToggle((toggle) =>
-				toggle.setValue(this.plugin.settings.showEnclosingNote).onChange(async (value) => {
-					this.plugin.settings.showEnclosingNote = value;
-					await this.plugin.saveSettings();
-				})
-			);
+                new Setting(containerEl)
+                        .setName("Show Non-Markdown Files")
+                        .setDesc("If enabled, non-Markdown files will be listed alongside other notes in the generated waypoints.")
+                        .addToggle((toggle) =>
+                                toggle.setValue(this.plugin.settings.showNonMarkdownFiles).onChange(async (value) => {
+                                        this.plugin.settings.showNonMarkdownFiles = value;
+                                        await this.plugin.saveSettings();
+                                })
+                        );
+               new Setting(containerEl)
+                       .setName("Use Obsidian Sort Order")
+                       .setDesc("If enabled, waypoint entries follow the File Explorer's sort settings. Disable to set a custom order for this plugin.")
+                       .addToggle((toggle) =>
+                               toggle.setValue(this.plugin.settings.useObsidianSort).onChange(async (value) => {
+                                       this.plugin.settings.useObsidianSort = value;
+                                       await this.plugin.saveSettings();
+                                       this.display();
+                               })
+                       );
+               new Setting(containerEl)
+                       .setName("Manual Sort Order")
+                       .setDesc("Sort order used when not following Obsidian's setting.")
+                       .addDropdown((dropdown) =>
+                               dropdown
+                                       .addOption("name", "Name")
+                                       .addOption("modified", "Last modified time")
+                                       .addOption("created", "Creation time")
+                                       .setValue(this.plugin.settings.sortOrder)
+                                       .onChange(async (value) => {
+                                               this.plugin.settings.sortOrder = value;
+                                               await this.plugin.saveSettings();
+                                       })
+                                       .setDisabled(this.plugin.settings.useObsidianSort)
+                       );
+               new Setting(containerEl)
+                       .setName("Manual Sort Direction")
+                       .setDesc("Direction used when not following Obsidian's setting.")
+                       .addDropdown((dropdown) =>
+                               dropdown
+                                       .addOption("asc", "Ascending")
+                                       .addOption("desc", "Descending")
+                                       .setValue(this.plugin.settings.sortDescending ? "desc" : "asc")
+                                       .onChange(async (value) => {
+                                               this.plugin.settings.sortDescending = value === "desc";
+                                               await this.plugin.saveSettings();
+                                       })
+                                       .setDisabled(this.plugin.settings.useObsidianSort)
+                       );
+                new Setting(containerEl)
+                        .setName("Show Enclosing Note")
+                        .setDesc("If enabled, the name of the folder note containing the waypoint will be listed at the top of the generated waypoints.")
+                        .addToggle((toggle) =>
+                                toggle.setValue(this.plugin.settings.showEnclosingNote).onChange(async (value) => {
+                                        this.plugin.settings.showEnclosingNote = value;
+                                        await this.plugin.saveSettings();
+                                })
+                        );
 		new Setting(containerEl)
 			.setName("Stop Scan at Folder Notes")
 			.setDesc("If enabled, the waypoint generator will stop scanning nested folders when it encounters a folder note. Otherwise, it will only stop if the folder note contains a waypoint.")
