@@ -391,12 +391,64 @@ export default class Waypoint extends Plugin {
         }
 
         sortChildren(children: TAbstractFile[]): TAbstractFile[] {
-                const sortOrder = this.settings.useObsidianSort
-                        ? (((this.app.vault as any).getConfig?.("fileSortOrder") as string) || "name")
-                        : this.settings.sortOrder;
-                const reverse = this.settings.useObsidianSort
-                        ? !!(this.app.vault as any).getConfig?.("fileSortOrderReverse")
-                        : this.settings.sortDescending;
+                let sortOrder: string;
+                let reverse: boolean;
+
+                if (this.settings.useObsidianSort) {
+                        const app = this.app as any;
+                        
+                        // Default fallback values
+                        sortOrder = "alphabetical";
+                        reverse = false;
+                        
+                        // Search workspace recursively for file-explorer view
+                        const findFileExplorerView = (split: any): any => {
+                                if (!split) return null;
+                                
+                                // Check if this split has a file-explorer view
+                                if (split.view && split.view.getViewType?.() === 'file-explorer') {
+                                        return split.view;
+                                }
+                                
+                                // Recursively search children
+                                if (split.children && split.children.length > 0) {
+                                        for (const child of split.children) {
+                                                const found = findFileExplorerView(child);
+                                                if (found) return found;
+                                        }
+                                }
+                                
+                                return null;
+                        };
+                        
+                        // Search all workspace splits for file explorer
+                        const fileExplorerView = findFileExplorerView(app.workspace.rootSplit) ||
+                                               findFileExplorerView(app.workspace.leftSplit) ||
+                                               findFileExplorerView(app.workspace.rightSplit);
+                        
+                        if (fileExplorerView) {
+                                sortOrder = fileExplorerView.sortOrder || "alphabetical";
+                                reverse = fileExplorerView.sortOrderReverse || false;
+                        }
+
+                        // Map Obsidian's sort order values to our expected values
+                        if (sortOrder === "alphabetical" || sortOrder === "name" || sortOrder === "byName") {
+                                sortOrder = "name";
+                        } else if (sortOrder === "modified" || sortOrder === "modtime" || sortOrder === "mtime" || 
+                                  sortOrder === "byModifiedTime" || sortOrder === "byModified") {
+                                sortOrder = "modified";
+                        } else if (sortOrder === "created" || sortOrder === "ctime" || sortOrder === "birthtime" ||
+                                  sortOrder === "byCreatedTime" || sortOrder === "byCreated") {
+                                sortOrder = "created";
+                        } else {
+                                // If we don't recognize the sort order, fall back to name
+                                sortOrder = "name";
+                        }
+                } else {
+                        sortOrder = this.settings.sortOrder;
+                        reverse = this.settings.sortDescending;
+                }
+
                 const direction = reverse ? -1 : 1;
                 return children.sort((a, b) => {
                         let diff = 0;
@@ -405,12 +457,20 @@ export default class Waypoint extends Plugin {
                                 const bTime = (b as TFile).stat?.mtime;
                                 if (aTime != null && bTime != null) {
                                         diff = aTime - bTime;
+                                } else if (aTime != null) {
+                                        diff = 1; // a is newer
+                                } else if (bTime != null) {
+                                        diff = -1; // b is newer
                                 }
                         } else if (sortOrder === "created") {
                                 const aTime = (a as TFile).stat?.ctime;
                                 const bTime = (b as TFile).stat?.ctime;
                                 if (aTime != null && bTime != null) {
                                         diff = aTime - bTime;
+                                } else if (aTime != null) {
+                                        diff = 1; // a is newer
+                                } else if (bTime != null) {
+                                        diff = -1; // b is newer
                                 }
                         }
                         if (diff === 0) {
@@ -423,24 +483,25 @@ export default class Waypoint extends Plugin {
                 });
         }
 
+
         ignorePath(path: string): boolean {
                 let found = false;
                 this.settings.ignorePaths.forEach((comparePath) => {
                         if (comparePath === "") {
-				// Ignore empty paths (occurs when the setting value is empty)
-				return;
-			}
-			const regex = new RegExp(comparePath);
-			if (path.match(regex)) {
-				this.log(`Ignoring path: ${path}`);
-				found = true;
-			}
-		});
-		if (found) {
-			return true;
+			// Ignore empty paths (occurs when the setting value is empty)
+			return;
 		}
-		return false;
+		const regex = new RegExp(comparePath);
+		if (path.match(regex)) {
+			this.log(`Ignoring path: ${path}`);
+			found = true;
+		}
+	});
+	if (found) {
+		return true;
 	}
+	return false;
+}
 
 	/**
 	 * Scan the changed folders and their ancestors for waypoints and update them if found.
