@@ -1,0 +1,7 @@
+.cm-comment {
+	opacity: 0.25;
+}
+
+.cm-line:hover .cm-comment {
+	opacity: inherit;
+}

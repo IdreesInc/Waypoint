@@ -572,16 +572,6 @@ class WaypointSettingsTab extends PluginSettingTab {
 		// 			})
 		// 	);
 		new Setting(containerEl)
-			.setName("Folder Note Filename")
-			.setDesc("The filename of the folder note. Only used if the folder note style is set to Custom Filename.")
-			.addText(text => text
-				.setValue(this.plugin.settings.folderNoteFilename)
-				.onChange(async (value) => {
-					this.plugin.settings.folderNoteFilename = value;
-					await this.plugin.saveSettings();
-				})
-			);
-		new Setting(containerEl)
 			.setName("Show Folder Notes")
 			.setDesc("If enabled, folder notes will be listed alongside other notes in the generated waypoints.")
 			.addToggle((toggle) =>
@@ -717,6 +707,16 @@ class WaypointSettingsTab extends PluginSettingTab {
 						this.plugin.settings.ignorePaths = paths;
 						await this.plugin.saveSettings();
 					})
+			);
+		new Setting(containerEl)
+			.setName("Custom Folder Note Filename")
+			.setDesc("The filename of the folder note. Only used if the folder note style is set to Custom Filename.")
+			.addText(text => text
+				.setValue(this.plugin.settings.folderNoteFilename)
+				.onChange(async (value) => {
+					this.plugin.settings.folderNoteFilename = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		const postscriptElement = containerEl.createEl("div", {
 			cls: "setting-item",
