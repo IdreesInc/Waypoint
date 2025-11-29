@@ -1,9 +1,9 @@
 {
 	"id": "waypoint",
 	"name": "Waypoint",
-	"version": "1.4.0",
+	"version": "2.1.0",
 	"minAppVersion": "0.12.0",
-	"description": "Easily generate dynamic content maps in your folder notes. Enables folders to show up in the graph view and removes the need for messy tags!",
+	"description": "Easily generate dynamic content maps in your folder notes using waypoints. Enables folders to show up in the graph view and removes the need for messy tags!",
 	"author": "Idrees Hassan",
 	"authorUrl": "https://idreesinc.com",
 	"isDesktopOnly": false
