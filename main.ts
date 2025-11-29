@@ -3,6 +3,20 @@ import { App, debounce, normalizePath, Plugin, PluginSettingTab, Setting, TAbstr
 enum FolderNoteType {
 	InsideFolder = "INSIDE_FOLDER",
 	OutsideFolder = "OUTSIDE_FOLDER",
+	CustomFilename = "CUSTOM_FILENAME"
+}
+
+interface WaypointSettings {
+	waypointFlag: string
+	stopScanAtFolderNotes: boolean,
+	showFolderNotes: boolean,
+	showNonMarkdownFiles: boolean,
+	debugLogging: boolean,
+	useWikiLinks: boolean,
+	showEnclosingNote: boolean,
+	folderNoteType: string,
+	folderNoteFilename: string
+
 }
 
 enum WaypointType {
@@ -39,6 +53,7 @@ const DEFAULT_SETTINGS: WaypointSettings = {
 	useFrontMatterTitle: false,
 	showEnclosingNote: false,
 	folderNoteType: FolderNoteType.InsideFolder,
+	folderNoteFilename: "index",
 	ignorePaths: ["_attachments"],
 	useSpaces: false,
 	numSpaces: 2,
@@ -142,9 +157,13 @@ export default class Waypoint extends Plugin {
 	isFolderNote(file: TFile): boolean {
 		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 			return file.basename == file.parent.name;
-		}
-		if (file.parent) {
-			return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
+		} else if (this.settings.folderNoteType === FolderNoteType.OutsideFolder) {
+			if (file.parent) {
+				return this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename) instanceof TFolder;
+			}
+			return false;
+		} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+			return file.basename == this.settings.folderNoteFilename;
 		}
 		return false;
 	}
@@ -209,7 +228,7 @@ export default class Waypoint extends Plugin {
 	async updateWaypoint(file: TFile, flagType: WaypointType) {
 		this.log("Updating " + flagType + " in " + file.path);
 		let fileTree;
-		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+		if (this.settings.folderNoteType === FolderNoteType.InsideFolder || this.settings.folderNoteType === FolderNoteType.CustomFilename) {
 			fileTree = await this.getFileTreeRepresentation(file.parent, file.parent, 0, true);
 		} else {
 			const folder = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(file) + file.basename);
@@ -239,7 +258,7 @@ export default class Waypoint extends Plugin {
 				waypointStart = i;
 				continue;
 			}
-			if (waypointStart !== -1 && trimmed === endWaypoint) {
+			if (waypointStart !== -1 && trimmed.includes(endWaypoint)) {
 				waypointEnd = i;
 				break;
 			}
@@ -466,6 +485,8 @@ export default class Waypoint extends Plugin {
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
 				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + folder.name + ".md");
+			} else if (this.settings.folderNoteType === FolderNoteType.CustomFilename) {
+				folderNote = this.app.vault.getAbstractFileByPath(folder.path + "/" + this.settings.folderNoteFilename + ".md");
 			} else {
 				if (folder.parent) {
 					folderNote = this.app.vault.getAbstractFileByPath(this.getCleanParentPath(folder) + folder.name + ".md");
@@ -528,19 +549,19 @@ class WaypointSettingsTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		containerEl.createEl("h2", { text: "Waypoint Settings" });
+		containerEl.createEl('h2', { text: "Waypoint Settings" });
 		new Setting(this.containerEl)
 			.setName("Folder Note Style")
 			.setDesc("Select the style of folder note used.")
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption(FolderNoteType.InsideFolder, "Folder Name Inside")
-					.addOption(FolderNoteType.OutsideFolder, "Folder Name Outside")
-					.setValue(this.plugin.settings.folderNoteType)
-					.onChange(async (value) => {
-						this.plugin.settings.folderNoteType = value;
-						await this.plugin.saveSettings();
-					})
+			.addDropdown((dropdown) => dropdown
+				.addOption(FolderNoteType.InsideFolder, "Folder Name Inside")
+				.addOption(FolderNoteType.OutsideFolder, "Folder Name Outside")
+				.addOption(FolderNoteType.CustomFilename, "Custom Filename")
+				.setValue(this.plugin.settings.folderNoteType)
+				.onChange(async (value) => {
+					this.plugin.settings.folderNoteType = value;
+					await this.plugin.saveSettings();
+				})
 			);
 		// new Setting(containerEl)
 		// 	.setName("Debug Plugin")
@@ -553,6 +574,16 @@ class WaypointSettingsTab extends PluginSettingTab {
 		// 				await this.plugin.saveSettings();
 		// 			})
 		// 	);
+		new Setting(containerEl)
+			.setName("Folder Note Filename")
+			.setDesc("The filename of the folder note. Only used if the folder note style is set to Custom Filename.")
+			.addText(text => text
+				.setValue(this.plugin.settings.folderNoteFilename)
+				.onChange(async (value) => {
+					this.plugin.settings.folderNoteFilename = value;
+					await this.plugin.saveSettings();
+				})
+			);
 		new Setting(containerEl)
 			.setName("Show Folder Notes")
 			.setDesc("If enabled, folder notes will be listed alongside other notes in the generated waypoints.")
