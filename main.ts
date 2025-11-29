@@ -321,12 +321,19 @@ export default class Waypoint extends Plugin {
 				title = null;
 			}
 			// Print the file name
-			if (node.extension == "md") {
+			if (node.extension == "md" || node.extension == "base") {
+				const isBase = node.extension === "base";
 				if (this.settings.useWikiLinks) {
+					// Base links require the extension for some reason
+					const nodeName = isBase ? node.basename + ".base" : node.basename;
+					if (isBase && !title) {
+						// Hide ".base" from the title if not otherwise specified
+						title = node.basename;
+					}
 					if (title) {
-						return `${bullet} [[${node.basename}|${title}]]`;
+						return `${bullet} [[${nodeName}|${title}]]`;
 					} else {
-					return `${bullet} [[${node.basename}]]`;
+						return `${bullet} [[${nodeName}]]`;
 					}
 				}
 				if (title) {
