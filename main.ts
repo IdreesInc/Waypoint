@@ -75,7 +75,11 @@ export default class Waypoint extends Plugin {
 			name: "Go to parent Waypoint",
 			callback: async () => {
 				const curFile = this.app.workspace.getActiveFile();
-				const [, parentPoint] = await this.locateParentPoint(curFile, false);
+				let folder = curFile.parent;
+				if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
+					folder = folder?.parent;
+				}
+				const [, parentPoint] = await this.locateParentPoint(folder, FolderNoteType.InsideFolder === this.settings.folderNoteType);
 				this.app.workspace.activeLeaf.openFile(parentPoint);
 			},
 		});
@@ -478,9 +482,6 @@ export default class Waypoint extends Plugin {
 	async locateParentPoint(node: TAbstractFile, includeCurrentNode: boolean): Promise<[WaypointType, TFile]> {
 		this.log("Locating parent flag and file of " + node.name);
 		let folder = includeCurrentNode ? node : node.parent;
-		if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
-			folder = folder?.parent;
-		}
 		while (folder) {
 			let folderNote;
 			if (this.settings.folderNoteType === FolderNoteType.InsideFolder) {
