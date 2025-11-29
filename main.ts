@@ -393,9 +393,6 @@ export default class Waypoint extends Plugin {
 		if (children.length > 0) {
 			const nextIndentLevel = topLevel && !this.settings.showEnclosingNote ? indentLevel : indentLevel + 1;
 
-			/* If enabled 'folders sorted to the top',
-			 * sort according to the node type
-			 */
 			if (this.settings.foldersOnTop) {
 				children.sort((x, y) => {
 					if (x instanceof TFolder
@@ -612,7 +609,7 @@ class WaypointSettingsTab extends PluginSettingTab {
 				})
 			);
 		new Setting(containerEl)
-			.setName("Folders sorted to the top")
+			.setName("Folders on Top")
 			.setDesc("If enabled, folders will be listed at the top in the generated waypoints.")
 			.addToggle((toggle) =>
 				toggle.setValue(this.plugin.settings.foldersOnTop).onChange(async (value) => {
