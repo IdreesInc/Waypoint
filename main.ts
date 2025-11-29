@@ -395,6 +395,9 @@ export default class Waypoint extends Plugin {
 		return text;
 	}
 
+  spaceEncode(str: string) {
+		return str.replace(/ /g, "%20");
+	}
 	/**
 	 * Generate an encoded URI path to the given file that is relative to the given root.
 	 * @param rootNode The from which the relative path will be generated
@@ -403,9 +406,9 @@ export default class Waypoint extends Plugin {
 	 */
 	getEncodedUri(rootNode: TFolder, node: TAbstractFile) {
 		if (rootNode.isRoot()) {
-			return `./${encodeURI(node.path)}`;
+			return `./${this.spaceEncode(node.path)}`;
 		}
-		return `./${encodeURI(node.path.substring(rootNode.path.length + 1))}`;
+		return `./${this.spaceEncode(node.path.substring(rootNode.path.length + 1))}`;
 	}
 
 	ignorePath(path: string): boolean {
