@@ -132,6 +132,9 @@ export default class Waypoint extends Plugin {
 	 * @param file The file to scan
 	 */
 	detectFlag = async (file: TFile, flagType: WaypointType) => {
+		if (file && this.ignorePath(file.path)) {
+			return;
+		}
 		this.log("Modification on " + file.name);
 		this.log("Scanning for " + flagType + " flags...");
 		const waypointFlag = await this.getWaypointFlag(flagType);
