@@ -120,7 +120,7 @@ export default class Waypoint extends Plugin {
 		this.addSettingTab(new WaypointSettingsTab(this.app, this));
 	}
 
-	onunload() {}
+	onunload() { }
 
 	detectFlags = async (file: TFile) => {
 		this.detectFlag(file, WaypointType.Waypoint);
@@ -290,6 +290,16 @@ export default class Waypoint extends Plugin {
 		await this.app.vault.modify(file, lines.join("\n"));
 	}
 
+	private getTitleFromFrontMatter(file: TFile): string | undefined {
+		if (this.settings.useFrontMatterTitle) {
+			const fm = this.app.metadataCache?.getFileCache(file)?.frontmatter;
+			if (fm?.hasOwnProperty("title")) {
+				return fm.title
+			}
+		}
+		return undefined;
+	}
+
 	/**
 	 * Generate a file tree representation of the given folder.
 	 * @param rootNode The root of the file tree that will be generated
@@ -308,39 +318,28 @@ export default class Waypoint extends Plugin {
 		if (this.ignorePath(node.path)) {
 			return null;
 		}
+
 		if (node instanceof TFile) {
 			if (this.settings.debugLogging) {
 				console.log(node);
 			}
-			// If non-null get the file's title property
-			let title : string | null;
-			if (this.settings.useFrontMatterTitle) {
-				const fm = this.app.metadataCache?.getFileCache(node)?.frontmatter;
-				// check if the file has a "title" property and if so return it
-				if (fm && fm.hasOwnProperty("title")){
-					title =  fm.title;
-				}
-			} else {
-				title = null;
-			}
+			const fmTitle: string | undefined = this.getTitleFromFrontMatter(node);
 			// Print the file name
 			if (node.extension == "md" || node.extension == "base") {
 				const isBase = node.extension === "base";
 				if (this.settings.useWikiLinks) {
 					// Base links require the extension for some reason
 					const nodeName = isBase ? node.basename + ".base" : node.basename;
-					if (isBase && !title) {
-						// Hide ".base" from the title if not otherwise specified
-						title = node.basename;
-					}
+					// Hide ".base" from the title if not otherwise specified
+					const title = isBase && !fmTitle ? node.basename : fmTitle;
 					if (title) {
 						return `${bullet} [[${nodeName}|${title}]]`;
 					} else {
 						return `${bullet} [[${nodeName}]]`;
 					}
 				}
-				if (title) {
-					return `${bullet} [${title}](${this.getEncodedUri(rootNode, node)})`;
+				if (fmTitle) {
+					return `${bullet} [${fmTitle}](${this.getEncodedUri(rootNode, node)})`;
 				} else {
 					return `${bullet} [${node.basename}](${this.getEncodedUri(rootNode, node)})`;
 				}
@@ -364,10 +363,19 @@ export default class Waypoint extends Plugin {
 				folderNote = this.app.vault.getAbstractFileByPath(node.parent.path + "/" + node.name + ".md");
 			}
 			if (folderNote instanceof TFile) {
+				const fmTitle: string | undefined = this.getTitleFromFrontMatter(folderNote);
 				if (this.settings.useWikiLinks) {
-					text = `${bullet} **[[${folderNote.basename}]]**`;
+					if (fmTitle) {
+						text = `${bullet} **[[${folderNote.basename}|${fmTitle}]]**`;
+					} else {
+						text = `${bullet} **[[${folderNote.basename}]]**`;
+					}
 				} else {
-					text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
+					if (fmTitle) {
+						text = `${bullet} **[${fmTitle}](${this.getEncodedUri(rootNode, folderNote)})**`;
+					} else {
+						text = `${bullet} **[${folderNote.basename}](${this.getEncodedUri(rootNode, folderNote)})**`;
+					}
 				}
 				if (!topLevel) {
 					if (this.settings.stopScanAtFolderNotes) {
