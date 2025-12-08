@@ -1,6 +1,9 @@
 # vscode
 .vscode 
 
+# devcontainer
+.devcontainer
+
 # Intellij
 *.iml
 .idea
