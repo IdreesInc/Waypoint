@@ -293,7 +293,8 @@ export default class Waypoint extends Plugin {
 	private getTitleFromFrontMatter(file: TFile): string | undefined {
 		if (this.settings.useFrontMatterTitle) {
 			const fm = this.app.metadataCache?.getFileCache(file)?.frontmatter;
-			if (fm?.hasOwnProperty("title")) {
+			if (fm?.hasOwnProperty("title") && typeof fm.title === "string") {
+				this.log(`Found frontmatter title for ${file.path}: ${fm.title}`);
 				return fm.title
 			}
 		}
